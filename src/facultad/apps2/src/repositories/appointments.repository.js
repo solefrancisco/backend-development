@@ -14,7 +14,7 @@ class MySqlAppointmentsRepository {
       
       return { success: true, data: result[0][0].appointment_id };
     } catch (error) {
-      return { success: false, sqlState: error.sqlState };
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
 
@@ -45,7 +45,7 @@ class MySqlAppointmentsRepository {
 
       return { success: true, data: rows[0] ?? null };
     } catch (error) {
-      return { success: false, sqlState: error.message };
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
 
@@ -102,7 +102,7 @@ class MySqlAppointmentsRepository {
 
       return { success: true, data: rows };
     } catch (error) {
-      return { success: false, sqlState: error.message };
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
 
@@ -135,7 +135,7 @@ class MySqlAppointmentsRepository {
 
       return { success: true, data: rows };    
     } catch (error) {
-      return { success: false, sqlState: error.message };
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
 
@@ -168,7 +168,7 @@ class MySqlAppointmentsRepository {
 
       return { success: true, data: rows };
     } catch (error) {
-      return { success: false, sqlState: error.message };
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
 
@@ -188,7 +188,7 @@ class MySqlAppointmentsRepository {
 
       return { success: true, data: { affectedRows: result.affectedRows > 0 } };
     } catch (error) {
-      return { success: false, sqlState: error.message };
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
 
@@ -208,7 +208,7 @@ class MySqlAppointmentsRepository {
 
       return { success: true, data: { affectedRows: result.affectedRows > 0 } };  
     } catch (error) {
-      return { success: false, sqlState: error.message };
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
 
@@ -228,7 +228,7 @@ class MySqlAppointmentsRepository {
 
       return { success: true, data: { affectedRows: result.affectedRows > 0 } };
     } catch (error) {
-      return { success: false, sqlState: error.message };
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
 
@@ -248,7 +248,7 @@ class MySqlAppointmentsRepository {
 
       return { success: true, data: { affectedRows: result.affectedRows > 0 } };
     } catch (error) {
-      return { success: false, sqlState: error.message };
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
 
@@ -267,7 +267,7 @@ class MySqlAppointmentsRepository {
 
       return { success: true, data: { affectedRows: result.affectedRows > 0 } };
     } catch (error) {
-      return { success: false, sqlState: error.message };
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
 }

@@ -36,20 +36,20 @@ module.exports = {
     port: Number(process.env.PORT),
 
     // DATABASE
-    dbEnabled: getBoolean('DB_ENABLED'),
-    dbHost: getRequired('DB_HOST'),
-    dbPort: Number(process.env.DB_PORT),
-    dbUser: getRequired('DB_USER'),
-    dbPassword: getRequired('DB_PASSWORD'),
-    dbName: getRequired('DB_NAME'),
-    dbConnectionLimit: Number(process.env.DB_CONNECTION_LIMIT),
-    dbQueueLimit: Number(process.env.DB_QUEUE_LIMIT),
-    dbWaitForConnections: getBoolean('DB_WAIT_FOR_CONNECTIONS'),
+    dbEnabled: getBoolean('APPS2_DB_ENABLED'),
+    dbHost: getRequired('APPS2_DB_HOST'),
+    dbPort: Number(process.env.APPS2_DB_PORT),
+    dbUser: getRequired('APPS2_DB_USER'),
+    dbPassword: getRequired('APPS2_DB_PASSWORD'),
+    dbName: getRequired('APPS2_DB_NAME'),
+    dbConnectionLimit: Number(process.env.APPS2_DB_CONNECTION_LIMIT),
+    dbQueueLimit: Number(process.env.APPS2_DB_QUEUE_LIMIT),
+    dbWaitForConnections: getBoolean('APPS2_DB_WAIT_FOR_CONNECTIONS'),
 
     // PAGINATION
-    paginationDefaultPageSize: Number(process.env.PAGINATION_DEFAULT_PAGE_SIZE),
+    paginationDefaultPageSize: Number(process.env.APPS2_PAGINATION_DEFAULT_PAGE_SIZE),
     
     // MODULES
-    appointmentsEnabled: getBoolean('APPOINTMENTS_ENABLED')
+    appointmentsEnabled: getBoolean('APPS2_APPOINTMENTS_ENABLED')
   }
 };

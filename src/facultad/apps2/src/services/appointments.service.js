@@ -20,7 +20,7 @@ class AppointmentsService {
                 throw new BadRequestError('Scheduling conflict: Medic, patient, or center is not available at the requested time');
             }
 
-            throw new InternalServerError('Failed to create appointment: ' + result.sqlState);
+            throw new InternalServerError('Failed to create appointment: ' + result.errorMessage);
         }
         
         return { appointment_id: result.data };
@@ -30,7 +30,7 @@ class AppointmentsService {
         const result = await this.appointmentsRepository.findAll(paginationConfig.defaultPageSize, query);
         
         if (!result.success) {
-            throw new InternalServerError('Failed to retrieve appointments: ' + result.sqlState);
+            throw new InternalServerError('Failed to retrieve appointments: ' + result.errorMessage);
         }
         
         return result.data;
@@ -40,7 +40,7 @@ class AppointmentsService {
         const response = await this.appointmentsRepository.findById(id);
         
         if (!response.success) {
-            throw new InternalServerError('Failed to find appointment: ' + response.sqlState);
+            throw new InternalServerError('Failed to find appointment: ' + response.errorMessage);
         }
 
         if (!response.data) {
