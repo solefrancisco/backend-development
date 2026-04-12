@@ -61,12 +61,6 @@ async function startEmailConsumer() {
             channel.ack(message);
         } catch (error) {
             const nextRetryCount = retryCount + 1;
-            console.error('Failed to process email notification', {
-                queue: rabbitConfig.queues.email,
-                retryCount,
-                nextRetryCount,
-                error: error.message,
-            });
 
             try {
                 if (nextRetryCount <= rabbitConfig.maxRetries) {
