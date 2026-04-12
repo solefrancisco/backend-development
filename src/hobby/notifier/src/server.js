@@ -1,6 +1,6 @@
 require('module-alias/register');
 const { createApp } = require('../app');
-const { buildDependencies, bootstrapNotificationConsumers } = require('@notify/bootstrap');
+const { buildDependencies } = require('@notify/bootstrap');
 const { env } = require('@notify/configs/env.config');
 
 async function startServer() {
