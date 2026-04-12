@@ -14,11 +14,8 @@ async function startServer() {
         process.exit(0);
     }
 
-    const dependencies = buildDependencies();
+    const dependencies = await buildDependencies();
     const app = createApp(dependencies);
-
-    await bootstrapNotificationConsumers();
-
     const port = env.port || 3000;
 
     app.listen(port, () => {
