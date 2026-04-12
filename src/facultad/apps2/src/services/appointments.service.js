@@ -12,8 +12,6 @@ class AppointmentsService {
     async createAppointment(data) {
         const result = await this.appointmentsRepository.create(data);
         if (!result.success) {
-            console.error('Error creating appointment:', result.errorMessage, 'SQL State:', result.sqlState);
-
             if (result.sqlState === '45400')
                 throw new ConflictError('Scheduling conflict: medic is not available at the requested time');
 
