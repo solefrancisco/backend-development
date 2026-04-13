@@ -6,10 +6,17 @@ function buildDependencies() {
     
     if (env.notifierEnabled) {
         dependencies.notificationController = buildNotificationController();
+        bootstrapInfrastructure();
     }
     
     return dependencies;
 }
 
+async function bootstrapInfrastructure() {
+    if (env.notifierEnabled) {
+        await bootstrapNotificationConsumers();
+    }
+}
 
-module.exports = { buildDependencies, bootstrapNotificationConsumers };
+
+module.exports = { buildDependencies, bootstrapInfrastructure };

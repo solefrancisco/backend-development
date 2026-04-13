@@ -7,6 +7,7 @@ const { logger } = require('@notify/utils/logger.util');
 async function processEmailNotification(data, transporter, emailAccount) {
     const template = renderEmailTemplate(data);
 
+    logger.info(`Sending email notification: ${JSON.stringify(data)}`);
     await transporter.sendMail({
         from: emailAccount.from,
         to: data.to,
@@ -55,18 +56,12 @@ async function startEmailConsumer() {
         try {
             const rawContent = message.content.toString();
             const data = JSON.parse(rawContent);
-            const { transporter, emailAccount } = createEmailTransporter(data.notificationType);
-
+            const { transporter, emailAccount } = createEmailTransporter(data.notification_type);
+            
             await processEmailNotification(data, transporter, emailAccount);
             channel.ack(message);
         } catch (error) {
             const nextRetryCount = retryCount + 1;
-            console.error('Failed to process email notification', {
-                queue: rabbitConfig.queues.email,
-                retryCount,
-                nextRetryCount,
-                error: error.message,
-            });
 
             try {
                 if (nextRetryCount <= rabbitConfig.maxRetries) {
