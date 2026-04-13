@@ -11,7 +11,9 @@ function createCentralizerApp() {
     app.use(express.json());
 
     app.all('/', (req, res) => {
-        res.sendStatus(403);
+        res.status(403).json({
+            error: 'Forbidden'
+        });
     });
 
     app.get('/health', (req, res) => {
@@ -25,10 +27,14 @@ function createCentralizerApp() {
         mountSubApp(app, appConfig);
     }
 
+    // Todo lo no montado por mountSubApp => 403
     app.use((req, res) => {
-        return res.status(404).json({
-            error: 'Not found',
-            message: `Route ${req.method} ${req.originalUrl} not found`
+        if (req.originalUrl === '/favicon.ico') {
+            return res.sendStatus(204);
+        }
+
+        return res.status(403).json({
+            error: 'Forbidden'
         });
     });
 
