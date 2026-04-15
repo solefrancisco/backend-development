@@ -36,6 +36,39 @@ class AppointmentsController {
         }
     }
 
+    async patchAppointmentByIdConfirm(req, res, next) {
+        try {
+            const { id } = req.params;
+            const appointment = await this.appointmentsService.confirmAppointment(id);
+
+            return res.status(200).json(appointment);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async patchAppointmentByIdCancel(req, res, next) {
+        try {
+            const { id } = req.params;
+            const appointment = await this.appointmentsService.cancelAppointment(id);
+
+            return res.status(200).json(appointment);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async patchAppointmentByIdCheckIn(req, res, next) {
+        try {
+            const { id } = req.params;
+            const appointment = await this.appointmentsService.checkInAppointment(id);
+
+            return res.status(200).json(appointment);
+        } catch (error) {
+            next(error);
+        }
+    }
+
 }
 
 module.exports = { AppointmentsController };
