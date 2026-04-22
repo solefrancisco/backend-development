@@ -89,7 +89,7 @@ class AppointmentsService {
             throw new BadRequestError('Appointment cannot be confirmed in its current state');
         }
 
-        return this.getAppointmentById(id);
+        return { message: 'The appointment was confirmed successfully' };
     }
 
     async checkInAppointment(id) {
@@ -112,7 +112,7 @@ class AppointmentsService {
             throw new BadRequestError('Appointment cannot be checked-in in its current state');
         }
 
-        return this.getAppointmentById(id);
+        return { message: 'The appointment was checked-in successfully' };
     }
 
     async cancelAppointment(id) {
@@ -135,7 +135,30 @@ class AppointmentsService {
             throw new BadRequestError('Appointment cannot be cancelled in its current state');
         }
 
-        return this.getAppointmentById(id);
+        return { message: 'The appointment was cancelled successfully' };
+    }
+
+    async rescheduleAppointment (id, start, end) {
+        const result = await this.appointmentsRepository.reschedule(id, start, end);
+
+        if (!result.success) {
+            throw new InternalServerError ('Failed to reschedule appointment: ' + result.sqlState);
+        }
+
+        if (!result.data.affectedRows) {
+            const found = await this.appointmentsRepository.findById(id);
+            if (!found.success) {
+                throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
+            }
+
+            if (!found.data) {
+                throw new NotFoundError(`Appointment id ${id} not found`);
+            }
+
+            throw new BadRequestError('Appointment cannot be rescheduled in its current state');
+        }
+
+        return { message: 'The appointment was rescheduled successfully' };
     }
 
 

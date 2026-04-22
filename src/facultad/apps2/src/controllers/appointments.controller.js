@@ -47,7 +47,7 @@ class AppointmentsController {
         }
     }
 
-    async patchAppointmentByIdCancel(req, res, next) {
+    async deleteAppointmentByIdCancel(req, res, next) {
         try {
             const { id } = req.params;
             const appointment = await this.appointmentsService.cancelAppointment(id);
@@ -65,6 +65,19 @@ class AppointmentsController {
 
             return res.status(200).json(appointment);
         } catch (error) {
+            next(error);
+        }
+    }
+
+    async patchAppointmentByIdReschedule (req, res, next) {
+        try {
+            const {id} = req.params;
+            const {starts_at} = req.body;
+            const {ends_at} = req.body;
+            const appointment = await this.appointmentsService.rescheduleAppointment(id, starts_at, ends_at);
+
+            return res.status(200).json(appointment);
+        } catch (error){
             next(error);
         }
     }

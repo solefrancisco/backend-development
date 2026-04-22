@@ -344,6 +344,27 @@ class MySqlAppointmentsRepository {
       return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
+
+  async reschedule (appointmentId, start, end) {
+    try{
+      const [result] = await this.pool.query(
+        `
+          UPDATE appointments
+          SET
+             starts_at = ?,
+             ends_at = ?
+          WHERE id = ?
+            AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED')
+        `,
+        [start, end, appointmentId] 
+      );
+
+      return { success: true, data: { affectedRows: result.affectedRows > 0 } };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
 }
 
 module.exports = { MySqlAppointmentsRepository };
