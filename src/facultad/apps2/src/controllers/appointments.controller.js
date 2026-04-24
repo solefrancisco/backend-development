@@ -36,7 +36,7 @@ class AppointmentsController {
         }
     }
 
-    async patchAppointmentByIdConfirm(req, res, next) {
+    async confirmAppointmentById(req, res, next) {
         try {
             const { id } = req.params;
             const appointment = await this.appointmentsService.confirmAppointment(id);
@@ -47,7 +47,7 @@ class AppointmentsController {
         }
     }
 
-    async deleteAppointmentByIdCancel(req, res, next) {
+    async deleteAppointmentById(req, res, next) {
         try {
             const { id } = req.params;
             const appointment = await this.appointmentsService.cancelAppointment(id);
@@ -58,7 +58,7 @@ class AppointmentsController {
         }
     }
 
-    async patchAppointmentByIdCheckIn(req, res, next) {
+    async checkInAppointmentById(req, res, next) {
         try {
             const { id } = req.params;
             const appointment = await this.appointmentsService.checkInAppointment(id);
@@ -69,7 +69,7 @@ class AppointmentsController {
         }
     }
 
-    async patchAppointmentByIdReschedule (req, res, next) {
+    async rescheduleAppointmentById(req, res, next) {
         try {
             const {id} = req.params;
             const {starts_at} = req.body;

@@ -1,4 +1,3 @@
-const { env } = require('@apps2/configs/env.config');
 const { AppointmentsController } = require('@apps2/controllers/appointments.controller');
 const { AppointmentsService } = require('@apps2/services/appointments.service');
 

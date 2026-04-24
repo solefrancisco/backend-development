@@ -103,8 +103,10 @@ class MySqlAppointmentsRepository {
         values.push(queryFilters.speciality_id);
       }
       
+      query += " WHERE status NOT IN ('EXPIRED', 'CANCELLED') ";
+
       if (conditions.length > 0) {
-        query += ` WHERE ${conditions.join(' AND ')}`;
+        query += ` AND ${conditions.join(' AND ')}`;
       }
 
       if (queryFilters.page) {
@@ -165,9 +167,11 @@ class MySqlAppointmentsRepository {
         conditions.push('speciality_id = ?');
         values.push(queryFilters.speciality_id);
       }
+      
+      query += " WHERE status NOT IN ('EXPIRED', 'CANCELLED') ";
 
       if (conditions.length > 0) {
-        query += ` WHERE ${conditions.join(' AND ')}`;
+        query += ` AND ${conditions.join(' AND ')}`;
       }
 
       const [rows] = await this.pool.query(

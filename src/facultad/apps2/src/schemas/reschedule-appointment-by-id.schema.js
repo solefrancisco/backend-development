@@ -2,7 +2,7 @@ const { z } = require('zod');
 
 const dateTimeRegex = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 
-const patchAppointmentByIdRescheduleParamsSchema = z.object({
+const rescheduleAppointmentByIdParamsSchema = z.object({
     id: z.coerce
       .number ({
         required_error: 'id is required',
@@ -12,7 +12,7 @@ const patchAppointmentByIdRescheduleParamsSchema = z.object({
       .positive('id must be a positive integer')
 });
 
-const patchAppointmentByIdRescheduleBodySchema = z.object({
+const rescheduleAppointmentByIdBodySchema = z.object({
   starts_at: z
       .string({
         required_error: 'starts_at is required',
@@ -82,6 +82,7 @@ const patchAppointmentByIdRescheduleBodySchema = z.object({
   }
 });
 
-module.exports = {patchAppointmentByIdRescheduleParamsSchema,
-  patchAppointmentByIdRescheduleBodySchema
+module.exports = {
+  rescheduleAppointmentByIdParamsSchema,
+  rescheduleAppointmentByIdBodySchema
 };

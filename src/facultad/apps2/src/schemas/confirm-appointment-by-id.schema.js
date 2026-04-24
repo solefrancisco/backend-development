@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-const patchAppointmentByIdCheckInSchema = z.object({
+const confirmAppointmentByIdSchema = z.object({
   id: z.coerce
     .number({
       required_error: 'id is required',
@@ -10,4 +10,4 @@ const patchAppointmentByIdCheckInSchema = z.object({
     .positive('id must be a positive integer')
 });
 
-module.exports = { patchAppointmentByIdCheckInSchema};
+module.exports = { confirmAppointmentByIdSchema };
