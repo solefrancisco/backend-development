@@ -3,6 +3,7 @@ const cors = require('cors');
 const express = require('express');
 const { errorHandler } = require('@apps2/middlewares/error-handler.middleware');
 const { AppointmentsRouter } = require('@apps2/routes/appointments.route');
+const { SpecialitiesRouter } = require('@apps2/routes/specialities.route');
 
 function createApp(dependencies) {
     const app = express();
@@ -29,6 +30,13 @@ function bootstrapAppControllers(app, dependencies) {
         app.use(
             '/api/v1/appointments', 
             AppointmentsRouter(dependencies.appointmentsController)
+        );
+    }
+
+    if (dependencies.specialitiesController) {
+        app.use(
+            '/api/v1/specialities', 
+            SpecialitiesRouter(dependencies.specialitiesController)
         );
     }
 }

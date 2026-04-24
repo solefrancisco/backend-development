@@ -50,6 +50,7 @@ module.exports = {
     paginationDefaultPageSize: Number(process.env.APPS2_PAGINATION_DEFAULT_PAGE_SIZE),
     
     // MODULES
-    appointmentsEnabled: getBoolean('APPS2_APPOINTMENTS_ENABLED')
+    appointmentsEnabled: getBoolean('APPS2_APPOINTMENTS_ENABLED'),
+    specialitiesEnabled: getBoolean('APPS2_SPECIALITIES_ENABLED')
   }
 };

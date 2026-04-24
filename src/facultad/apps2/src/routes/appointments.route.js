@@ -1,13 +1,13 @@
 const { Router } = require('express');
 
 const { validate } = require('@apps2/middlewares/validate.middleware');
-const { createAppointmentSchema } = require('@apps2/schemas/create-appointment.schema');
-const { getAppointmentsSchema } = require('@apps2/schemas/get-appointments.schema');
-const { getAppointmentByIdSchema } = require('@apps2/schemas/get-appointment-by-id.schema');
-const { confirmAppointmentByIdSchema } = require('@apps2/schemas/confirm-appointment-by-id.schema');
-const { deleteAppointmentByIdSchema } = require('@apps2/schemas/delete-appointment-by-id.schema');
-const { checkInAppointmentByIdSchema } = require('@apps2/schemas/check-in-appointment-by-id.schema');
-const { rescheduleAppointmentByIdParamsSchema, rescheduleAppointmentByIdBodySchema} = require('@apps2/schemas/reschedule-appointment-by-id.schema');
+const { createAppointmentSchema } = require('@apps2/schemas/appointments/create-appointment.schema');
+const { getAppointmentsSchema } = require('@apps2/schemas/appointments/get-appointments.schema');
+const { getAppointmentByIdSchema } = require('@apps2/schemas/appointments/get-appointment-by-id.schema');
+const { confirmAppointmentByIdSchema } = require('@apps2/schemas/appointments/confirm-appointment-by-id.schema');
+const { deleteAppointmentByIdSchema } = require('@apps2/schemas/appointments/delete-appointment-by-id.schema');
+const { checkInAppointmentByIdSchema } = require('@apps2/schemas/appointments/check-in-appointment-by-id.schema');
+const { rescheduleAppointmentByIdParamsSchema, rescheduleAppointmentByIdBodySchema} = require('@apps2/schemas/appointments/reschedule-appointment-by-id.schema');
 
 function AppointmentsRouter(appointmentsController) {
     const router = Router();

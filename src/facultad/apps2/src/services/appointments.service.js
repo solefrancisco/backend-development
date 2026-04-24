@@ -51,9 +51,9 @@ class AppointmentsService {
         return {
             appointments: result.data,
             pagination: {
-                totalItems: totalItems,
-                totalPages: totalPages,
-                itemsPerPage: paginationConfig.defaultPageSize
+                total_appointments: totalItems,
+                total_pages: totalPages,
+                appointments_per_page: paginationConfig.defaultPageSize
             }
         };
     }
@@ -73,19 +73,17 @@ class AppointmentsService {
     async confirmAppointment(id) {
         const result = await this.appointmentsRepository.confirm(id);
 
-        if (!result.success) {
+        if (!result.success)
             throw new InternalServerError('Failed to confirm appointment: ' + result.sqlState);
-        }
 
         if (!result.data.affectedRows) {
             const found = await this.appointmentsRepository.findById(id);
-            if (!found.success) {
-                throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
-            }
 
-            if (!found.data) {
+            if (!found.success)
+                throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
+
+            if (!found.data)
                 throw new NotFoundError(`Appointment id ${id} not found`);
-            }
 
             throw new BadRequestError('Appointment cannot be confirmed in its current state');
         }
@@ -96,19 +94,17 @@ class AppointmentsService {
     async checkInAppointment(id) {
         const result = await this.appointmentsRepository.checkIn(id);
 
-        if (!result.success) {
+        if (!result.success)
             throw new InternalServerError('Failed to check-in appointment: ' + result.sqlState);
-        }
 
         if (!result.data.affectedRows) {
             const found = await this.appointmentsRepository.findById(id);
-            if (!found.success) {
-                throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
-            }
 
-            if (!found.data) {
+            if (!found.success)
+                throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
+
+            if (!found.data)
                 throw new NotFoundError(`Appointment id ${id} not found`);
-            }
 
             throw new BadRequestError('Appointment cannot be checked-in in its current state');
         }
@@ -119,19 +115,17 @@ class AppointmentsService {
     async cancelAppointment(id) {
         const result = await this.appointmentsRepository.cancel(id);
 
-        if (!result.success) {
+        if (!result.success)
             throw new InternalServerError('Failed to cancel appointment: ' + result.sqlState);
-        }
 
         if (!result.data.affectedRows) {
             const found = await this.appointmentsRepository.findById(id);
-            if (!found.success) {
+            
+            if (!found.success)
                 throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
-            }
 
-            if (!found.data) {
+            if (!found.data)
                 throw new NotFoundError(`Appointment id ${id} not found`);
-            }
 
             throw new BadRequestError('Appointment cannot be cancelled in its current state');
         }
@@ -142,26 +136,23 @@ class AppointmentsService {
     async rescheduleAppointment (id, start, end) {
         const result = await this.appointmentsRepository.reschedule(id, start, end);
 
-        if (!result.success) {
+        if (!result.success)
             throw new InternalServerError ('Failed to reschedule appointment: ' + result.sqlState);
-        }
 
         if (!result.data.affectedRows) {
             const found = await this.appointmentsRepository.findById(id);
-            if (!found.success) {
-                throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
-            }
 
-            if (!found.data) {
+            if (!found.success)
+                throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
+
+            if (!found.data)
                 throw new NotFoundError(`Appointment id ${id} not found`);
-            }
 
             throw new BadRequestError('Appointment cannot be rescheduled in its current state');
         }
 
         return { message: 'The appointment was rescheduled successfully' };
     }
-
 
 }
 
