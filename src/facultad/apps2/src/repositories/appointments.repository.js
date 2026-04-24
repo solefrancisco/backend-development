@@ -9,9 +9,12 @@ class MySqlAppointmentsRepository {
         `
           CALL sp_create_appointment(?, ?, ?, ?, ?, ?)
         `,
-        [data.medic_id, data.patient_id, data.center_id, data.speciality_id, data.starts_at, data.ends_at]
+        [
+          data.medic.id, 
+          data.patient.id, 
+          data.appointment.center_id, data.appointment.speciality_id, data.appointment.starts_at, data.appointment.ends_at
+        ]
       );
-      
       return { success: true, data: result[0][0].appointment_id };
     } catch (error) {
       return { success: false, sqlState: error.sqlState, errorMessage: error.message };
@@ -167,7 +170,7 @@ class MySqlAppointmentsRepository {
         conditions.push('speciality_id = ?');
         values.push(queryFilters.speciality_id);
       }
-      
+
       query += " WHERE status NOT IN ('EXPIRED', 'CANCELLED') ";
 
       if (conditions.length > 0) {
