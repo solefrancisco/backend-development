@@ -9,7 +9,6 @@ class SpecialitiesService {
     }
 
     async getSpecialities(query) {
-        console.log('Received query for getSpecialities:', query);
         const quantity = await this.specialitiesRepository.count(query);
         if (!quantity.success)
             throw new InternalServerError('Failed to paginate specialities: ' + quantity.errorMessage);
@@ -26,7 +25,6 @@ class SpecialitiesService {
         if (!result.success)
             throw new InternalServerError('Failed to retrieve specialities: ' + result.errorMessage);
         
-        console.log('Retrieved specialities for getSpecialities:', result.data);
         return {
             specialities: result.data,
             pagination: {

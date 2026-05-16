@@ -54,9 +54,6 @@ class MySqlSpecialitiesRepository {
       const offset = (page - 1) * limit;
       query += ' ORDER BY name ASC, id ASC LIMIT ? OFFSET ?';
       values.push(limit, offset);
-      console.log(query)
-      console.log('Pagination parameters - Page:', page, 'Limit:', limit);
-
       const [rows] = await this.pool.query(
         query,
         values
@@ -70,7 +67,6 @@ class MySqlSpecialitiesRepository {
 
   async count(queryFilters) {
     try{
-      console.log('Received query for count in repository:', queryFilters);
       let query = `
           SELECT COUNT(1) AS count 
           FROM specialities
