@@ -17,6 +17,9 @@ class AppointmentsService {
     async createAppointment(data) {
         const result = await this.appointmentsRepository.create(data);
         if (!result.success)
+            if (['45400', '45410', '45420', '45430'].includes(result.sqlState))
+                throw new ConflictError('Scheduling conflict: ' + result.errorMessage);
+
             throw new InternalServerError('Failed to create appointment: ' + result.errorMessage);
         
         return { appointment_id: result.data };
