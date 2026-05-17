@@ -3,6 +3,44 @@ class MySqlAppointmentsRepository {
     this.pool = pool;
   }
 
+  async filter(queryFilters, query) {
+      let conditions = [];
+      let values = [queryFilters.since, queryFilters.until];
+      let page = 1;
+
+      if (queryFilters.patient_id) {
+        conditions.push('patient_id = ?');
+        values.push(queryFilters.patient_id);
+      }
+
+      if (queryFilters.medic_id) {
+        conditions.push('medic_id = ?');
+        values.push(queryFilters.medic_id);
+      }
+
+      if (queryFilters.medical_center_id) {
+        conditions.push('center_id = ?');
+        values.push(queryFilters.medical_center_id);
+      }
+
+      if(queryFilters.speciality_id) {
+        conditions.push('speciality_id = ?');
+        values.push(queryFilters.speciality_id);
+      }
+      
+      query += " WHERE starts_at between ? AND ? AND status NOT IN ('EXPIRED', 'CANCELLED') ";
+
+      if (conditions.length > 0) {
+        query += ` AND ${conditions.join(' AND ')}`;
+      }
+
+      if (queryFilters.page) {
+        page = Number(queryFilters.page);
+      }
+
+      return { query, conditions, values, page };
+  }
+
   async create(data) {
     try {
       const [result] = await this.pool.query(
@@ -54,7 +92,7 @@ class MySqlAppointmentsRepository {
 
   async findAll(limit, queryFilters) {
     try{
-      let query = `
+      const baseQuery = `
           SELECT
             a.id,
             a.medic_id,
@@ -71,41 +109,8 @@ class MySqlAppointmentsRepository {
             DATE_FORMAT(a.created_at, '%Y-%m-%d %H:%i:%s') AS created_at
           FROM appointments a
         `;
-
-      let conditions = [];
-      let values = [queryFilters.since, queryFilters.until];
-      let page = 1;
-
-      if (queryFilters.patient_id) {
-        conditions.push('patient_id = ?');
-        values.push(queryFilters.patient_id);
-      }
-
-      if (queryFilters.medic_id) {
-        conditions.push('medic_id = ?');
-        values.push(queryFilters.medic_id);
-      }
-
-      if (queryFilters.medical_center_id) {
-        conditions.push('center_id = ?');
-        values.push(queryFilters.medical_center_id);
-      }
-
-      if(queryFilters.speciality_id) {
-        conditions.push('speciality_id = ?');
-        values.push(queryFilters.speciality_id);
-      }
       
-      query += " WHERE starts_at between ? AND ? AND status NOT IN ('EXPIRED', 'CANCELLED') ";
-
-      if (conditions.length > 0) {
-        query += ` AND ${conditions.join(' AND ')}`;
-      }
-
-      if (queryFilters.page) {
-        page = Number(queryFilters.page);
-      }
-      
+      let { query, conditions, values, page } = await this.filter(queryFilters, baseQuery);
       const offset = (page - 1) * limit;
       query += ' ORDER BY starts_at ASC, id ASC LIMIT ? OFFSET ?';
       values.push(limit, offset);
@@ -123,40 +128,12 @@ class MySqlAppointmentsRepository {
 
   async count(queryFilters) {
     try{
-      let query = `
+      const baseQuery = `
           SELECT COUNT(1) AS count 
           FROM appointments
         `;
 
-      let conditions = [];
-      let values = [queryFilters.since, queryFilters.until];
-
-      if (queryFilters.patient_id) {
-        conditions.push('patient_id = ?');
-        values.push(queryFilters.patient_id);
-      }
-
-      if (queryFilters.medic_id) {
-        conditions.push('medic_id = ?');
-        values.push(queryFilters.medic_id);
-      }
-
-      if (queryFilters.medical_center_id) {
-        conditions.push('center_id = ?');
-        values.push(queryFilters.medical_center_id);
-      }
-
-      if(queryFilters.speciality_id) {
-        conditions.push('speciality_id = ?');
-        values.push(queryFilters.speciality_id);
-      }
-
-      query += " WHERE starts_at between ? AND ? AND status NOT IN ('EXPIRED', 'CANCELLED') ";
-
-      if (conditions.length > 0) {
-        query += ` AND ${conditions.join(' AND ')}`;
-      }
-
+      const { query, conditions, values, page } = await this.filter(queryFilters, baseQuery);
       const [rows] = await this.pool.query(
         query,
         values
@@ -354,17 +331,18 @@ class MySqlAppointmentsRepository {
 
   async findOccupiedAppointments(queryFilters) {
     try {
-      const [rows] = await this.pool.query(
-        `
+      const baseQuery = `
           SELECT
             id,
             DATE_FORMAT(starts_at, '%Y-%m-%d %H:%i:%s') AS starts_at
           FROM appointments
-          WHERE starts_at between ? AND ?
-        `,
-        [queryFilters.since, queryFilters.until]
-      );
+        `;
 
+      const { query, conditions, values, page } = await this.filter(queryFilters, baseQuery);
+      const [rows] = await this.pool.query(
+        query,
+        values
+      );
       return { success: true, data: rows };
     } catch (error) {
       return { success: false, sqlState: error.sqlState, errorMessage: error.message };

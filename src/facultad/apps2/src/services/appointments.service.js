@@ -52,7 +52,7 @@ class AppointmentsService {
         let result = await this.appointmentsRepository.findAll(defaultPageSize, query);
         if (!result.success)
             throw new InternalServerError('Failed to retrieve appointments: ' + result.errorMessage);
-        
+
         if (mockConfig.enabled) {
             result = await this.mockData(result);
         }
