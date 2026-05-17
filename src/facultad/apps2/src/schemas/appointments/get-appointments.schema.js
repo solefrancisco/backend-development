@@ -43,13 +43,13 @@ const getAppointmentsSchema = z.object({
     .positive('speciality_id must be greater than 0')
     .optional(),
   
-  only_occupied: z
+  light_response: z
     .coerce.number({
-      invalid_type_error: 'only_occupied must be 0 or 1'
+      invalid_type_error: 'light_response must be 0 or 1'
     })
-    .int('only_occupied must be 0 or 1')
+    .int('light_response must be 0 or 1')
     .refine(value => value === 0 || value === 1, {
-      message: 'only_occupied must be 0 or 1'
+      message: 'light_response must be 0 or 1'
     })
     .optional(),
   

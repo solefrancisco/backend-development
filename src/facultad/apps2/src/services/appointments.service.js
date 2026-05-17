@@ -117,7 +117,7 @@ class AppointmentsService {
     }
 
     async searchAppointments(query) {
-        if (query.only_occupied)
+        if (query.light_response)
             return await this.findOccupiedAppointments(query);
 
         return await this.getAppointments(query);
