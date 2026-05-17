@@ -56,35 +56,25 @@ class MySqlAppointmentsRepository {
     try{
       let query = `
           SELECT
-            id,
-            medic_id,
-            patient_id,
-            center_id,
-            speciality_id,
-            status,
-            DATE_FORMAT(starts_at, '%Y-%m-%d %H:%i:%s') AS starts_at,
-            DATE_FORMAT(ends_at, '%Y-%m-%d %H:%i:%s') AS ends_at,
-            DATE_FORMAT(confirmed_at, '%Y-%m-%d %H:%i:%s') AS confirmed_at,
-            DATE_FORMAT(checked_in_at, '%Y-%m-%d %H:%i:%s') AS checked_in_at,
-            DATE_FORMAT(cancelled_at, '%Y-%m-%d %H:%i:%s') AS cancelled_at,
-            DATE_FORMAT(completed_at, '%Y-%m-%d %H:%i:%s') AS completed_at,
-            DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
-          FROM appointments
+            a.id,
+            a.medic_id,
+            a.patient_id,
+            a.center_id,
+            a.speciality_id,
+            a.status,
+            DATE_FORMAT(a.starts_at, '%Y-%m-%d %H:%i:%s') AS starts_at,
+            DATE_FORMAT(a.ends_at, '%Y-%m-%d %H:%i:%s') AS ends_at,
+            DATE_FORMAT(a.confirmed_at, '%Y-%m-%d %H:%i:%s') AS confirmed_at,
+            DATE_FORMAT(a.checked_in_at, '%Y-%m-%d %H:%i:%s') AS checked_in_at,
+            DATE_FORMAT(a.cancelled_at, '%Y-%m-%d %H:%i:%s') AS cancelled_at,
+            DATE_FORMAT(a.completed_at, '%Y-%m-%d %H:%i:%s') AS completed_at,
+            DATE_FORMAT(a.created_at, '%Y-%m-%d %H:%i:%s') AS created_at
+          FROM appointments a
         `;
 
       let conditions = [];
-      let values = [];
+      let values = [queryFilters.since, queryFilters.until];
       let page = 1;
-
-      if (queryFilters.since) {
-        conditions.push('starts_at >= ?');
-        values.push(queryFilters.since);
-      }
-
-      if (queryFilters.until) {
-        conditions.push('ends_at <= ?');
-        values.push(queryFilters.until);
-      }
 
       if (queryFilters.patient_id) {
         conditions.push('patient_id = ?');
@@ -106,7 +96,7 @@ class MySqlAppointmentsRepository {
         values.push(queryFilters.speciality_id);
       }
       
-      query += " WHERE status NOT IN ('EXPIRED', 'CANCELLED') ";
+      query += " WHERE starts_at between ? AND ? AND status NOT IN ('EXPIRED', 'CANCELLED') ";
 
       if (conditions.length > 0) {
         query += ` AND ${conditions.join(' AND ')}`;
@@ -139,17 +129,7 @@ class MySqlAppointmentsRepository {
         `;
 
       let conditions = [];
-      let values = [];
-
-      if (queryFilters.since) {
-        conditions.push('starts_at >= ?');
-        values.push(queryFilters.since);
-      }
-
-      if (queryFilters.until) {
-        conditions.push('ends_at <= ?');
-        values.push(queryFilters.until);
-      }
+      let values = [queryFilters.since, queryFilters.until];
 
       if (queryFilters.patient_id) {
         conditions.push('patient_id = ?');
@@ -171,7 +151,7 @@ class MySqlAppointmentsRepository {
         values.push(queryFilters.speciality_id);
       }
 
-      query += " WHERE status NOT IN ('EXPIRED', 'CANCELLED') ";
+      query += " WHERE starts_at between ? AND ? AND status NOT IN ('EXPIRED', 'CANCELLED') ";
 
       if (conditions.length > 0) {
         query += ` AND ${conditions.join(' AND ')}`;
@@ -352,7 +332,7 @@ class MySqlAppointmentsRepository {
     }
   }
 
-  async reschedule (appointmentId, start, end) {
+  async reschedule (data, id) {
     try{
       const [result] = await this.pool.query(
         `
@@ -363,7 +343,7 @@ class MySqlAppointmentsRepository {
           WHERE id = ?
             AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED')
         `,
-        [start, end, appointmentId] 
+        [data.starts_at, data.ends_at, id]
       );
 
       return { success: true, data: { affectedRows: result.affectedRows > 0 } };
@@ -372,6 +352,41 @@ class MySqlAppointmentsRepository {
     }
   }
 
+  async findOccupiedAppointments(queryFilters) {
+    try {
+      const [rows] = await this.pool.query(
+        `
+          SELECT
+            id,
+            DATE_FORMAT(starts_at, '%Y-%m-%d %H:%i:%s') AS starts_at
+          FROM appointments
+          WHERE starts_at between ? AND ?
+        `,
+        [queryFilters.since, queryFilters.until]
+      );
+
+      return { success: true, data: rows };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
+  async findMockedUsers(queryFilters) {
+    try {
+      const [rows] = await this.pool.query(
+        `
+          SELECT
+            fullname,
+            email
+          FROM mocked_users
+        `,
+      );
+
+      return { success: true, data: rows };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
 }
 
 module.exports = { MySqlAppointmentsRepository };

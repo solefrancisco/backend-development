@@ -5,7 +5,7 @@ class AppointmentsController {
 
     async createAppointment(req, res, next) {
         try {
-            const data = req.body;
+            const data = req.validatedRequest.body;
             const appointment = await this.appointmentsService.createAppointment(data);
 
             res.status(201).json(appointment);
@@ -16,9 +16,9 @@ class AppointmentsController {
 
     async getAppointments(req, res, next) {
         try {
-            const query = req.query;
-            const appointments = await this.appointmentsService.getAppointments(query);
-            
+            const query = req.validatedRequest.query;
+            const appointments = await this.appointmentsService.searchAppointments(query);
+
             res.status(200).json(appointments);
         } catch (error) {
             next(error);
@@ -27,9 +27,9 @@ class AppointmentsController {
 
     async getAppointmentById(req, res, next) {
         try {
-            const { id } = req.params;
+            const { id } = req.validatedRequest.params;
             const appointment = await this.appointmentsService.getAppointmentById(id);
-            
+
             return res.status(200).json(appointment);
         } catch (error) {
             next(error);
@@ -38,10 +38,10 @@ class AppointmentsController {
 
     async confirmAppointmentById(req, res, next) {
         try {
-            const { id } = req.params;
-            const appointment = await this.appointmentsService.confirmAppointment(id);
+            const { id } = req.validatedRequest.params;
+            const message = await this.appointmentsService.confirmAppointment(id);
 
-            return res.status(200).json(appointment);
+            return res.status(200).json(message);
         } catch (error) {
             next(error);
         }
@@ -49,10 +49,10 @@ class AppointmentsController {
 
     async deleteAppointmentById(req, res, next) {
         try {
-            const { id } = req.params;
-            const appointment = await this.appointmentsService.cancelAppointment(id);
+            const { id } = req.validatedRequest.params;
+            const message = await this.appointmentsService.cancelAppointment(id);
 
-            return res.status(200).json(appointment);
+            return res.status(200).json(message);
         } catch (error) {
             next(error);
         }
@@ -60,10 +60,10 @@ class AppointmentsController {
 
     async checkInAppointmentById(req, res, next) {
         try {
-            const { id } = req.params;
-            const appointment = await this.appointmentsService.checkInAppointment(id);
+            const { id } = req.validatedRequest.params;
+            const message = await this.appointmentsService.checkInAppointment(id);
 
-            return res.status(200).json(appointment);
+            return res.status(200).json(message);
         } catch (error) {
             next(error);
         }
@@ -71,12 +71,11 @@ class AppointmentsController {
 
     async rescheduleAppointmentById(req, res, next) {
         try {
-            const {id} = req.params;
-            const {starts_at} = req.body;
-            const {ends_at} = req.body;
-            const appointment = await this.appointmentsService.rescheduleAppointment(id, starts_at, ends_at);
+            const { id } = req.validatedRequest.params;
+            const data = req.validatedRequest;
+            const message = await this.appointmentsService.rescheduleAppointment(id, data);
 
-            return res.status(200).json(appointment);
+            return res.status(200).json(message);
         } catch (error){
             next(error);
         }

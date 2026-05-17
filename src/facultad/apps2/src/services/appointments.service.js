@@ -3,32 +3,33 @@ const { NotFoundError } = require('@apps2/errors/not-found.error');
 const { InternalServerError } = require('@apps2/errors/internal-server.error');
 const { ConflictError } = require('@apps2/errors/conflict.error');
 const { paginationConfig } = require('@apps2/configs/pagination.config');
+const { mockConfig } = require('@apps2/configs/mock.config');
 
 class AppointmentsService {
-    constructor(appointmentsRepository) {
+    constructor(appointmentsRepository, appointmentsUtils, specialitiesService) {
         this.appointmentsRepository = appointmentsRepository;
+        this.appointmentsUtils = appointmentsUtils;
+
+        // just for mocking purposes, to avoid circular dependencies
+        this.specialitiesService = specialitiesService;
     }
 
     async createAppointment(data) {
         const result = await this.appointmentsRepository.create(data);
-
-        if (!result.success) {
-            if (result.sqlState === '45400')
-                throw new ConflictError('Scheduling conflict: medic is not available at the requested time');
-
-            if (result.sqlState === '45410')
-                throw new ConflictError('Scheduling conflict: patient is not available at the requested time');
-
-            if (result.sqlState === '45420')
-                throw new ConflictError('Scheduling conflict: the medic already has an overlapping appointment for the requested time');
-
-            if (result.sqlState === '45430')
-                throw new ConflictError('Scheduling conflict: the patient already has an overlapping appointment for the requested time');
-
+        if (!result.success)
             throw new InternalServerError('Failed to create appointment: ' + result.errorMessage);
-        }
         
         return { appointment_id: result.data };
+    }
+
+    async findOccupiedAppointments(query) {
+        const result = await this.appointmentsRepository.findOccupiedAppointments(query);
+        if (!result.success)
+            throw new InternalServerError('Failed to retrieve occupied appointments: ' + result.errorMessage);
+    
+        return {
+            appointments: result.data,
+        }
     }
 
     async getAppointments(query) {
@@ -40,26 +41,31 @@ class AppointmentsService {
         if (totalItems === 0)
             throw new NotFoundError('No appointments found for the given criteria');
 
-        const totalPages = Math.ceil(totalItems / paginationConfig.defaultPageSize);
+        const defaultPageSize = paginationConfig.defaultPageSize;
+        const totalPages = Math.ceil(totalItems / defaultPageSize);
         if (query.page > totalPages)
             throw new BadRequestError(`Page ${query.page} does not exist. Total pages: ${totalPages}`);
 
-        const result = await this.appointmentsRepository.findAll(paginationConfig.defaultPageSize, query);
+        let result = await this.appointmentsRepository.findAll(defaultPageSize, query);
         if (!result.success)
             throw new InternalServerError('Failed to retrieve appointments: ' + result.errorMessage);
         
+        if (mockConfig.enabled) {
+            result = await this.mockData(result);
+        }
+
         return {
             appointments: result.data,
             pagination: {
                 total_appointments: totalItems,
                 total_pages: totalPages,
-                appointments_per_page: paginationConfig.defaultPageSize
+                appointments_per_page: defaultPageSize
             }
         };
     }
 
     async getAppointmentById(id) {
-        const response = await this.appointmentsRepository.findById(id);
+        let response = await this.appointmentsRepository.findById(id);
         
         if (!response.success)
             throw new InternalServerError('Failed to find appointment: ' + response.errorMessage);
@@ -67,93 +73,83 @@ class AppointmentsService {
         if (!response.data)
             throw new NotFoundError(`Appointment id ${id} not found`);
         
+        if (mockConfig.enabled) {
+            const result = { data: [response.data] }; // adapt to mockData format
+            response = await this.mockData(result);
+        }
+
         return response.data;
     }
 
     async confirmAppointment(id) {
         const result = await this.appointmentsRepository.confirm(id);
-
-        if (!result.success)
-            throw new InternalServerError('Failed to confirm appointment: ' + result.sqlState);
-
-        if (!result.data.affectedRows) {
-            const found = await this.appointmentsRepository.findById(id);
-
-            if (!found.success)
-                throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
-
-            if (!found.data)
-                throw new NotFoundError(`Appointment id ${id} not found`);
-
-            throw new BadRequestError('Appointment cannot be confirmed in its current state');
-        }
-
-        return { message: 'The appointment was confirmed successfully' };
+        return await this.validateAppointmentUpdate(id, result, 'confirmed');
     }
 
     async checkInAppointment(id) {
         const result = await this.appointmentsRepository.checkIn(id);
-
-        if (!result.success)
-            throw new InternalServerError('Failed to check-in appointment: ' + result.sqlState);
-
-        if (!result.data.affectedRows) {
-            const found = await this.appointmentsRepository.findById(id);
-
-            if (!found.success)
-                throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
-
-            if (!found.data)
-                throw new NotFoundError(`Appointment id ${id} not found`);
-
-            throw new BadRequestError('Appointment cannot be checked-in in its current state');
-        }
-
-        return { message: 'The appointment was checked-in successfully' };
+        return await this.validateAppointmentUpdate(id, result, 'checked-in');
     }
 
     async cancelAppointment(id) {
         const result = await this.appointmentsRepository.cancel(id);
+        return await this.validateAppointmentUpdate(id, result, 'cancelled');
+    }
 
+    async rescheduleAppointment(id, data) {
+        const result = await this.appointmentsRepository.reschedule(id, data);
+        return await this.validateAppointmentUpdate(id, result, 'rescheduled');
+    }
+
+    async validateAppointmentUpdate(id, result, action) {
         if (!result.success)
-            throw new InternalServerError('Failed to cancel appointment: ' + result.sqlState);
+            throw new InternalServerError ('Failed to perform operation on appointment: ' + result.sqlState);
 
         if (!result.data.affectedRows) {
-            const found = await this.appointmentsRepository.findById(id);
+            const found = await this.getAppointmentById(id);
+            throw new BadRequestError(`Appointment cannot be updated due to its current state`);
+        }
+
+        return { message: `The appointment was ${action} successfully` };
+    }
+
+    async searchAppointments(query) {
+        if (query.only_occupied)
+            return await this.findOccupiedAppointments(query);
+
+        return await this.getAppointments(query);
+    }
+
+    async mockData(result) {
+        const mockedUsers = await this.appointmentsRepository.findMockedUsers();
+        if (!mockedUsers.success)
+            throw new InternalServerError('Failed to retrieve mocked users: ' + mockedUsers.errorMessage);
+
+        for (const appointment of result.data) {
+            const randomPatient = this.appointmentsUtils.getRandomItem(mockedUsers.data);
+            const randomMedic = this.appointmentsUtils.getRandomItem(mockedUsers.data);
             
-            if (!found.success)
-                throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
+            appointment.patient = {
+                id: appointment.patient_id,
+                fullname: randomPatient.fullname,
+                email: randomPatient.email
+            };
+            appointment.medic = {
+                id: appointment.medic_id,
+                fullname: randomMedic.fullname,
+                email: randomMedic.email
+            };
 
-            if (!found.data)
-                throw new NotFoundError(`Appointment id ${id} not found`);
+            delete appointment.medic_id;
+            delete appointment.patient_id;
 
-            throw new BadRequestError('Appointment cannot be cancelled in its current state');
+            const specialityResponse = await this.specialitiesService.getSpecialityById(appointment.speciality_id);
+            appointment.speciality = specialityResponse;
+            delete appointment.speciality_id;
         }
 
-        return { message: 'The appointment was cancelled successfully' };
+        return result;
     }
-
-    async rescheduleAppointment (id, start, end) {
-        const result = await this.appointmentsRepository.reschedule(id, start, end);
-
-        if (!result.success)
-            throw new InternalServerError ('Failed to reschedule appointment: ' + result.sqlState);
-
-        if (!result.data.affectedRows) {
-            const found = await this.appointmentsRepository.findById(id);
-
-            if (!found.success)
-                throw new InternalServerError('Failed to find appointment: ' + found.sqlState);
-
-            if (!found.data)
-                throw new NotFoundError(`Appointment id ${id} not found`);
-
-            throw new BadRequestError('Appointment cannot be rescheduled in its current state');
-        }
-
-        return { message: 'The appointment was rescheduled successfully' };
-    }
-
 }
 
 module.exports = { AppointmentsService };

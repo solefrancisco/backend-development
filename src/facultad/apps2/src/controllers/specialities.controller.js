@@ -5,7 +5,7 @@ class SpecialitiesController {
     
     async getSpecialities(req, res, next) {
         try {
-            const query = req.validatedBody;
+            const query = req.validatedRequest.query;
             const specialities = await this.specialitiesService.getSpecialities(query);
             
             res.status(200).json(specialities);
