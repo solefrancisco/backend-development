@@ -4,6 +4,7 @@ const express = require('express');
 const { errorHandler } = require('@apps2/middlewares/error-handler.middleware');
 const { AppointmentsRouter } = require('@apps2/routes/appointments.route');
 const { SpecialitiesRouter } = require('@apps2/routes/specialities.route');
+const { MedicalCentersRouter } = require('@apps2/routes/medical-centers.route');
 
 function createApp(dependencies) {
     const app = express();
@@ -37,6 +38,13 @@ function bootstrapAppControllers(app, dependencies) {
         app.use(
             '/api/v1/specialities', 
             SpecialitiesRouter(dependencies.specialitiesController)
+        );
+    }
+
+    if (dependencies.medicalCentersController) {
+        app.use(
+            '/api/v1/medical-centers',
+            MedicalCentersRouter(dependencies.medicalCentersController)
         );
     }
 }

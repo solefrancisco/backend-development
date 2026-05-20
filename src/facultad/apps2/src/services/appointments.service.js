@@ -6,12 +6,13 @@ const { paginationConfig } = require('@apps2/configs/pagination.config');
 const { mockConfig } = require('@apps2/configs/mock.config');
 
 class AppointmentsService {
-    constructor(appointmentsRepository, appointmentsUtils, specialitiesService) {
+    constructor(appointmentsRepository, appointmentsUtils, specialitiesService, medicalCentersService) {
         this.appointmentsRepository = appointmentsRepository;
         this.appointmentsUtils = appointmentsUtils;
 
         // just for mocking purposes, to avoid circular dependencies
         this.specialitiesService = specialitiesService;
+        this.medicalCentersService = medicalCentersService;
     }
 
     async createAppointment(data) {
@@ -149,6 +150,10 @@ class AppointmentsService {
             const specialityResponse = await this.specialitiesService.getSpecialityById(appointment.speciality_id);
             appointment.speciality = specialityResponse;
             delete appointment.speciality_id;
+
+            const medicalCenterResponse = await this.medicalCentersService.getMedicalCentersById(appointment.center_id);
+            appointment.medical_center = medicalCenterResponse;
+            delete appointment.center_id;
         }
 
         return result;

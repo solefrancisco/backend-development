@@ -7,13 +7,23 @@ const { mockConfig } = require('@apps2/configs/mock.config');
 function mockRequiredDependencies() {
     if (mockConfig.enabled) {
         const { buildSpecialitiesController } = require('@apps2/bootstrap/specialities.bootstrap');
-        return { specialitiesService: buildSpecialitiesController().specialitiesService };
+        const { buildMedicalCentersController } = require('@apps2/bootstrap/medical-centers.bootstrap');
+        return {
+            specialitiesService: buildSpecialitiesController().specialitiesService,
+            medicalCentersService: buildMedicalCentersController().medicalCentersService
+        };
     } 
     return {};
 }
 
 function buildAppointmentsController() {
-    const appointmentsService = new AppointmentsService(buildAppointmentsRepository(), new AppointmentsUtils(), mockRequiredDependencies().specialitiesService);
+    const dependencies = mockRequiredDependencies();
+    const appointmentsService = new AppointmentsService(
+        buildAppointmentsRepository(),
+        new AppointmentsUtils(),
+        dependencies.specialitiesService,
+        dependencies.medicalCentersService
+    );
     return new AppointmentsController(appointmentsService);
 }
 

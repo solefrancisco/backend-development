@@ -61,6 +61,8 @@ module.exports = {
     // MODULES
     appointmentsEnabled: getBoolean('APPS2_APPOINTMENTS_ENABLED'),
     specialitiesEnabled: getBoolean('APPS2_SPECIALITIES_ENABLED'),
+    medicalCentersEnabled: getBoolean('APPS2_MEDICAL_CENTERS_ENABLED'),
+
 
     // OTHER
     mockedDataEnabled: getBoolean('APPS2_MOCKED_DATA')
