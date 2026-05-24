@@ -146,13 +146,13 @@ class AppointmentsService {
         };
 
         const appointmentInformation = await this.getAppointmentById(id);
-        const actualStatus = appointmentInformation[0].status;
+        const actualStatus = appointmentInformation.status;
 
         if(actualStatus !== 'CONFIRMED')
             throw new BadRequestError('Only confirmed appointments can be checked in');
 
         const maxHoursBeforeAppointment = 1;
-        const appointmentStartsAt = new Date(appointmentInformation[0].starts_at.replace(' ', 'T') + '-03:00');
+        const appointmentStartsAt = new Date(appointmentInformation.starts_at.replace(' ', 'T') + '-03:00');
         const earliestAllowedCheckIn = new Date(appointmentStartsAt.getTime() - maxHoursBeforeAppointment * 60 * 60 * 1000);
 
         if(new Date() < earliestAllowedCheckIn)
