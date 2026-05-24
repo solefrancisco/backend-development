@@ -29,7 +29,7 @@ class MySqlAppointmentsRepository {
       values.push(queryFilters.speciality_id);
     }
     
-    query += " WHERE starts_at between ? AND ? AND status NOT IN ('EXPIRED', 'CANCELLED') ";
+    query += " WHERE starts_at between ? AND ? AND status NOT IN ('EXPIRED', 'CANCELLED', 'ABSENT') ";
 
     if (conditions.length > 0) {
       query += ` AND ${conditions.join(' AND ')}`;
