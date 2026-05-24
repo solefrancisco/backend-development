@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 const { BadRequestError } = require('@apps2/errors/bad-request.error');
 const { NotFoundError } = require('@apps2/errors/not-found.error');
 const { InternalServerError } = require('@apps2/errors/internal-server.error');
@@ -9,6 +11,7 @@ class AppointmentsService {
     constructor(appointmentsRepository, appointmentsUtils, specialitiesService, medicalCentersService) {
         this.appointmentsRepository = appointmentsRepository;
         this.appointmentsUtils = appointmentsUtils;
+        this.notificationsClient = notificationsClient;
 
         // just for mocking purposes, to avoid circular dependencies
         this.specialitiesService = specialitiesService;
@@ -16,14 +19,50 @@ class AppointmentsService {
     }
 
     async createAppointment(data) {
+        if(mockConfig.enabled) {
+            // if mocking is enabled, we check in our database to avoid creating appointments with non existing data
+            await this.specialitiesService.getSpecialityById(data.appointment.speciality_id);
+        }
+
         const result = await this.appointmentsRepository.create(data);
-        if (!result.success)
+        if (!result.success){
             if (['45400', '45410', '45420', '45430'].includes(result.sqlState))
                 throw new ConflictError('Scheduling conflict: ' + result.errorMessage);
 
             throw new InternalServerError('Failed to create appointment: ' + result.errorMessage);
+        }
+
         
-        return { appointment_id: result.data };
+        let notificationPayload = data;
+        if (mockConfig.enabled) {
+            const adaptedData = { data: [data] }; // adapt to mockData format
+            notificationPayload = await this.mockData(adaptedData, { mockUsers: false, mockSpecialities: true, fromGet: false });
+            notificationPayload = notificationPayload.data[0]; // extract the appointment data
+        }
+
+        try{
+            const appointmentId = result.data;
+            const emailNotification = {
+                notify_by: 'email',
+                notification_type: 'createAppointment',
+            }
+            const queued = await this.queueNotificationForAppointment(appointmentId, notificationPayload, emailNotification);
+            if (!queued.success)
+                throw new InternalServerError('Failed to queue notification for appointment id ' + appointmentId);
+
+            const notificationId = queued.requestId;
+            return { appointment_id: appointmentId, notification_id: notificationId };
+        } catch (error) {
+            console.error(`Error occurred while sending notification for appointment id ${appointmentId}: ${error.message}`);
+            const rollbackResult = await this.appointmentsRepository.delete(appointmentId);
+
+            let thrownErrorMessage = !rollbackResult.success ?
+                'Failed to rollback appointment creation for appointment id ' + appointmentId + ': ' + rollbackResult.errorMessage
+                :
+                'Rolled back appointment creation for appointment id ' + appointmentId + " due to it was not possible to send the notification";
+
+            throw new InternalServerError(thrownErrorMessage);
+        }
     }
 
     async findOccupiedAppointments(query) {
@@ -86,35 +125,220 @@ class AppointmentsService {
     }
 
     async confirmAppointment(id) {
-        const result = await this.appointmentsRepository.confirm(id);
-        return await this.validateAppointmentUpdate(id, result, 'confirmed');
+        const perform = {
+            action: 'confirmAppointment',
+            output: "confirmed",
+            repositoryFunction: (id) => this.appointmentsRepository.confirm(id),
+        };
+
+        return await this.updateAppointmentStatusAndNotify(id, perform);
     }
 
     async checkInAppointment(id) {
-        const result = await this.appointmentsRepository.checkIn(id);
-        return await this.validateAppointmentUpdate(id, result, 'checked-in');
+        const perform = {
+            action: 'checkInAppointment',
+            output: "checked-in",
+            repositoryFunction: (id) => this.appointmentsRepository.checkIn(id),
+        };
+
+        const appointmentInformation = await this.getAppointmentById(id);
+        const actualStatus = appointmentInformation[0].status;
+
+        if(actualStatus !== 'CONFIRMED')
+            throw new BadRequestError('Only confirmed appointments can be checked in');
+
+        const maxHoursBeforeAppointment = 1;
+        const appointmentStartsAt = new Date(appointmentInformation[0].starts_at.replace(' ', 'T') + '-03:00');
+        const earliestAllowedCheckIn = new Date(appointmentStartsAt.getTime() - maxHoursBeforeAppointment * 60 * 60 * 1000);
+
+        if(new Date() < earliestAllowedCheckIn)
+            throw new BadRequestError('Cannot check-in more than 1 hour before the scheduled time');
+
+        return await this.updateAppointmentStatusAndNotify(id, perform, null, actualStatus);
     }
 
     async cancelAppointment(id) {
-        const result = await this.appointmentsRepository.cancel(id);
-        return await this.validateAppointmentUpdate(id, result, 'cancelled');
+        const perform = {
+            action: 'cancelAppointment',
+            output: "cancelled",
+            repositoryFunction: (id) => this.appointmentsRepository.cancel(id),
+        };
+
+        return await this.updateAppointmentStatusAndNotify(id, perform);
     }
 
     async rescheduleAppointment(id, data) {
-        const result = await this.appointmentsRepository.reschedule(id, data);
-        return await this.validateAppointmentUpdate(id, result, 'rescheduled');
+        const perform = {
+            action: 'rescheduleAppointment',
+            output: "rescheduled",
+            repositoryFunction: (id, data) => this.appointmentsRepository.reschedule(id, data),
+        };
+
+        return await this.updateAppointmentStatusAndNotify(id, perform, data);
     }
 
-    async validateAppointmentUpdate(id, result, action) {
-        if (!result.success)
-            throw new InternalServerError ('Failed to perform operation on appointment: ' + result.sqlState);
+    async startAppointment(id) {
+        const perform = {
+            action: 'startAppointment',
+            output: "started",
+            repositoryFunction: (id) => this.appointmentsRepository.start(id),
+        };
 
-        if (!result.data.affectedRows) {
-            const found = await this.getAppointmentById(id);
-            throw new BadRequestError(`Appointment cannot be updated due to its current state`);
+        await this.updateAppointmentStatus(id, perform);
+        return { message: `Appointment ${perform.output} successfully` };
+    }
+
+    async finishAppointment(id) {
+        const perform = {
+            action: 'finishAppointment',
+            output: "finished",
+            repositoryFunction: (id) => this.appointmentsRepository.complete(id),
+        };
+
+        return await this.updateAppointmentStatusAndNotify(id, perform);
+    }
+
+    async expirePendingAppointments() {
+        const appointmentsToExpire = await this.appointmentsRepository.findPendingAppointmentsToExpire();
+        if (!appointmentsToExpire.success)
+            throw new InternalServerError('Failed to retrieve pending appointments to expire: ' + appointmentsToExpire.errorMessage);
+        
+        const totalToExpire = appointmentsToExpire.data.length;
+        if (totalToExpire === 0)
+            return { message: 'No pending appointments to expire' };
+        
+        for (const appointment of appointmentsToExpire.data) {
+            const id = appointment.id;
+            const perform = {
+                action: 'expiredAppointment',
+                output: "expired",
+                repositoryFunction: (id) => this.appointmentsRepository.expirePendingAppointment(id),
+            };
+
+            try{
+                await this.updateAppointmentStatusAndNotify(id, perform);
+            } catch (error) {
+                continue; // continue with the next appointment, we don't want one failure to stop the whole expiration process
+            }
         }
 
-        return { message: `The appointment was ${action} successfully` };
+        return { message: `Expired ${totalToExpire} pending appointments` };
+    }
+
+    async remindPendingAppointments() {
+        const appointmentsToRemind = await this.appointmentsRepository.findPendingAppointmentsToRemind();
+        if (!appointmentsToRemind.success)
+            throw new InternalServerError('Failed to retrieve pending appointments to remind: ' + appointmentsToRemind.errorMessage);
+    
+        const totalToRemind = appointmentsToRemind.data.length;
+        if (totalToRemind === 0)
+            return { message: 'No pending appointments to remind' };
+    
+        for (const appointment of appointmentsToRemind.data) {
+            const id = appointment.id;
+            const perform = {
+                action: 'remindAppointment',
+                output: "reminded",
+                repositoryFunction: (id) => this.appointmentsRepository.remindPendingAppointment(id),
+            };
+
+            try{
+                await this.updateAppointmentStatusAndNotify(id, perform);
+            } catch (error) {
+                continue; // continue with the next appointment, we don't want one failure to stop the whole expiration process
+            }
+        }
+
+        return { message: `Reminded ${totalToRemind} pending appointments` };
+    }
+
+    async getAppointmentStatus(id) {
+        const appointmentInformation = await this.getAppointmentById(id);
+        const originalStatus = appointmentInformation[0].status;
+        return originalStatus;
+    }
+
+    async updateAppointmentStatus(id, perform, originalStatus, data = null){
+        let result;
+        if (data){
+            result = await perform.repositoryFunction(id, data);        
+        } else {
+            result = await perform.repositoryFunction(id);
+        }
+
+        if (!result.success)
+            throw new InternalServerError ('Failed to perform operation on appointment: ' + result.sqlState);
+        
+        if (!result.data.affectedRows)
+            throw new BadRequestError(`Appointment id ${id} was not found or status change was not allowed from ${originalStatus}`);
+    }
+
+    async updateAppointmentStatusAndNotify(id, perform, data = null, originalStatus = null) {
+        let status;
+        if (!originalStatus) {
+            status = await this.getAppointmentStatus(id);
+        } else{
+            status = originalStatus;
+        }
+
+        await this.updateAppointmentStatus(id, perform, status, data);
+        const queued = await this.sendChangeStatusNotification(id, perform.action);
+        
+        if (!queued.success) {
+            const rollbackResult = await this.appointmentsRepository.rollbackStatusChange(id, status);
+
+            if (!rollbackResult.success) {
+                throw new InternalServerError(`Failed to perform operation on appointment and failed to rollback to original status (${status}). Manual intervention required for appointment id ${id}.`);
+            }
+        }
+
+        return { 
+            message: `Appointment ${perform.output} successfully`, 
+            notificationId: queued.requestId
+        };
+    }
+    
+    async sendChangeStatusNotification(id, action) {
+        const requestId = crypto.randomUUID();
+        const originalNotificationData = await this.getNotificationOriginalData(id, requestId);
+
+        const emailNotification = {
+            notify_by: 'email',
+            notification_type: action,
+        }
+
+        const queued = await this.queueNotificationForAppointment(id, originalNotificationData, emailNotification, requestId);
+        return queued;
+    }
+
+    async getNotificationOriginalData(appointmentId, requestId) {
+        const getNotificationOriginalUuid = await this.appointmentsRepository.getNotificationUuid(appointmentId);
+        if (!getNotificationOriginalUuid.success)
+            throw new InternalServerError('Failed to retrieve original contact data for appointment id ' + appointmentId + ': ' + getNotificationOriginalUuid.errorMessage);
+        
+        if (!getNotificationOriginalUuid.data)
+            // it's internal server error because this data should exist if we are trying to send a notification for an appointment, if it doesn't exist something went wrong in the appointment creation process
+            throw new InternalServerError('No original contact data found for appointment id ' + appointmentId);
+
+        const checkNotificationUuid = getNotificationOriginalUuid.data.notification_uuid;
+
+        const notificationData = await this.notificationsClient.getNotification(checkNotificationUuid, requestId);
+        if (!notificationData.success)
+            throw new InternalServerError('Failed to retrieve original contact data from notification service for appointment id ' + appointmentId);
+
+        return notificationData.data;
+    }
+
+    async queueNotificationForAppointment(appointmentId, notificationPayload, emailNotification, notificationUuid = crypto.randomUUID()) {
+        const savedNotification = await this.appointmentsRepository.saveNotification(appointmentId, notificationUuid, emailNotification.notification_type);
+        if (!savedNotification.success)
+            throw new InternalServerError('Failed to save notification for appointment id ' + appointmentId + ': ' + savedNotification.errorMessage);
+
+        const queued = await this.notificationsClient.sendAppointmentNotification(notificationPayload, appointmentId, emailNotification, notificationUuid);
+        if (!queued.success)
+            throw new InternalServerError('Failed to queue notification for appointment id ' + appointmentId);
+
+        return { success: true, requestId: notificationUuid };
     }
 
     async searchAppointments(query) {
@@ -124,36 +348,54 @@ class AppointmentsService {
         return await this.getAppointments(query);
     }
 
-    async mockData(result) {
-        const mockedUsers = await this.appointmentsRepository.findMockedUsers();
-        if (!mockedUsers.success)
-            throw new InternalServerError('Failed to retrieve mocked users: ' + mockedUsers.errorMessage);
+    async mockData(result, {mockUsers=true, mockSpecialities=true, fromGet=true} = {}) {
+        let mockedUsers;
 
+        if (mockUsers) {
+            mockedUsers = await this.appointmentsRepository.findMockedUsers();
+            if (!mockedUsers.success)
+                throw new InternalServerError('Failed to retrieve mocked users: ' + mockedUsers.errorMessage);
+        }
+        
         for (const appointment of result.data) {
-            const randomPatient = this.appointmentsUtils.getRandomItem(mockedUsers.data);
-            const randomMedic = this.appointmentsUtils.getRandomItem(mockedUsers.data);
-            
-            appointment.patient = {
-                id: appointment.patient_id,
-                fullname: randomPatient.fullname,
-                email: randomPatient.email
-            };
-            appointment.medic = {
-                id: appointment.medic_id,
-                fullname: randomMedic.fullname,
-                email: randomMedic.email
-            };
+            if(mockUsers) {
+                const randomPatient = this.appointmentsUtils.getRandomItem(mockedUsers.data);
+                const randomMedic = this.appointmentsUtils.getRandomItem(mockedUsers.data);
+                
+                appointment.patient = {
+                    id: appointment.patient_id,
+                    fullname: randomPatient.fullname,
+                    email: randomPatient.email
+                };
+                appointment.medic = {
+                    id: appointment.medic_id,
+                    fullname: randomMedic.fullname,
+                    email: randomMedic.email
+                };
 
-            delete appointment.medic_id;
-            delete appointment.patient_id;
+                delete appointment.medic_id;
+                delete appointment.patient_id;
+            }
 
-            const specialityResponse = await this.specialitiesService.getSpecialityById(appointment.speciality_id);
-            appointment.speciality = specialityResponse;
-            delete appointment.speciality_id;
+            if(mockSpecialities) {
+                let specialityId;
 
-            const medicalCenterResponse = await this.medicalCentersService.getMedicalCentersById(appointment.center_id);
-            appointment.medical_center = medicalCenterResponse;
-            delete appointment.center_id;
+                if (fromGet) {
+                    specialityId = appointment.speciality_id;
+                } else {
+                    specialityId = appointment.appointment.speciality_id;
+                }
+
+                const specialityResponse = await this.specialitiesService.getSpecialityById(specialityId);
+
+                if (fromGet) {
+                    appointment.speciality = specialityResponse;
+                    delete appointment.speciality_id;
+                } else {
+                    appointment.appointment.speciality_name = specialityResponse.name;
+                    delete appointment.appointment.speciality_id;
+                }
+            }
         }
 
         return result;

@@ -65,6 +65,14 @@ module.exports = {
 
 
     // OTHER
-    mockedDataEnabled: getBoolean('APPS2_MOCKED_DATA')
+    mockedDataEnabled: getBoolean('APPS2_MOCKED_DATA'),
+    appointmentsExpirationIntervalMs: getNumber('APPS2_APPOINTMENT_EXPIRATION_INTERVAL_MS'), 
+    appointmentsReminderIntervalMs: getNumber('APPS2_APPOINTMENT_REMINDER_INTERVAL_MS'),
+
+    // INTEGRATIONS
+    // Notifications
+    notificationsEnabled: getBoolean('APPS2_INTEGRATIONS_NOTIFICATIONS_ENABLED'),
+    notificationsBaseUrl: getRequired('APPS2_INTEGRATIONS_NOTIFICATIONS_BASE_URL'),
+    notificationsApiKey: getRequired('APPS2_INTEGRATIONS_NOTIFICATIONS_API_KEY'),
   }
 };

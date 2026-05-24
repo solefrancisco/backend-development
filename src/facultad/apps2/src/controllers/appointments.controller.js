@@ -72,7 +72,7 @@ class AppointmentsController {
     async rescheduleAppointmentById(req, res, next) {
         try {
             const { id } = req.validatedRequest.params;
-            const data = req.validatedRequest;
+            const data = req.validatedRequest.body;
             const message = await this.appointmentsService.rescheduleAppointment(id, data);
 
             return res.status(200).json(message);
@@ -81,6 +81,27 @@ class AppointmentsController {
         }
     }
 
+    async startAppointmentById(req, res, next) {
+        try {
+            const { id } = req.validatedRequest.params;
+            const message = await this.appointmentsService.startAppointment(id);
+
+            return res.status(200).json(message);
+        } catch (error){
+            next(error);
+        }
+    }
+
+    async finishAppointmentById(req, res, next) {
+        try {
+            const { id } = req.validatedRequest.params;
+            const message = await this.appointmentsService.finishAppointment(id);
+
+            return res.status(200).json(message);
+        } catch (error){
+            next(error);
+        }
+    }
 }
 
 module.exports = { AppointmentsController };

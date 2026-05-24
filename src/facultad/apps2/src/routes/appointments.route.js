@@ -7,6 +7,8 @@ const { getAppointmentByIdSchema } = require('@apps2/schemas/appointments/get-ap
 const { confirmAppointmentByIdSchema } = require('@apps2/schemas/appointments/confirm-appointment-by-id.schema');
 const { deleteAppointmentByIdSchema } = require('@apps2/schemas/appointments/delete-appointment-by-id.schema');
 const { checkInAppointmentByIdSchema } = require('@apps2/schemas/appointments/check-in-appointment-by-id.schema');
+const { finishAppointmentByIdSchema } = require('@apps2/schemas/appointments/finish-appointment-by-id.schema');
+const { startAppointmentByIdSchema } = require('@apps2/schemas/appointments/start-appointment-by-id.schema');
 const { rescheduleAppointmentByIdParamsSchema, rescheduleAppointmentByIdBodySchema} = require('@apps2/schemas/appointments/reschedule-appointment-by-id.schema');
 
 function AppointmentsRouter(appointmentsController) {
@@ -47,6 +49,16 @@ function AppointmentsRouter(appointmentsController) {
         validate (rescheduleAppointmentByIdParamsSchema, 'params'),
         validate (rescheduleAppointmentByIdBodySchema, 'body'),
         (req, res, next) => appointmentsController.rescheduleAppointmentById(req, res, next) 
+    );
+
+    router.patch('/:id/start', 
+        validate(startAppointmentByIdSchema, 'params'),
+        (req, res, next) => appointmentsController.startAppointmentById(req, res, next)
+    );
+
+    router.patch('/:id/finish', 
+        validate(finishAppointmentByIdSchema, 'params'),
+        (req, res, next) => appointmentsController.finishAppointmentById(req, res, next)
     );
 
     return router;

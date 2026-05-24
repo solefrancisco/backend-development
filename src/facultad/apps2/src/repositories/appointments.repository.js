@@ -1,6 +1,7 @@
 class MySqlAppointmentsRepository {
   constructor(pool) {
     this.pool = pool;
+    this.buenosAiresNow = "NOW() - INTERVAL 3 HOUR";
   }
 
   async filter(queryFilters, query) {
@@ -72,10 +73,12 @@ class MySqlAppointmentsRepository {
             status,
             DATE_FORMAT(starts_at, '%Y-%m-%d %H:%i:%s') AS starts_at,
             DATE_FORMAT(ends_at, '%Y-%m-%d %H:%i:%s') AS ends_at,
+            DATE_FORMAT(expired_at, '%Y-%m-%d %H:%i:%s') AS expired_at,
             DATE_FORMAT(confirmed_at, '%Y-%m-%d %H:%i:%s') AS confirmed_at,
             DATE_FORMAT(checked_in_at, '%Y-%m-%d %H:%i:%s') AS checked_in_at,
             DATE_FORMAT(cancelled_at, '%Y-%m-%d %H:%i:%s') AS cancelled_at,
             DATE_FORMAT(completed_at, '%Y-%m-%d %H:%i:%s') AS completed_at,
+            DATE_FORMAT(started_at, '%Y-%m-%d %H:%i:%s') AS started_at,
             DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
           FROM appointments
           WHERE id = ?
@@ -103,9 +106,11 @@ class MySqlAppointmentsRepository {
             DATE_FORMAT(a.starts_at, '%Y-%m-%d %H:%i:%s') AS starts_at,
             DATE_FORMAT(a.ends_at, '%Y-%m-%d %H:%i:%s') AS ends_at,
             DATE_FORMAT(a.confirmed_at, '%Y-%m-%d %H:%i:%s') AS confirmed_at,
+            DATE_FORMAT(a.expired_at, '%Y-%m-%d %H:%i:%s') AS expired_at,
             DATE_FORMAT(a.checked_in_at, '%Y-%m-%d %H:%i:%s') AS checked_in_at,
             DATE_FORMAT(a.cancelled_at, '%Y-%m-%d %H:%i:%s') AS cancelled_at,
             DATE_FORMAT(a.completed_at, '%Y-%m-%d %H:%i:%s') AS completed_at,
+            DATE_FORMAT(a.started_at, '%Y-%m-%d %H:%i:%s') AS started_at,
             DATE_FORMAT(a.created_at, '%Y-%m-%d %H:%i:%s') AS created_at
           FROM appointments a
         `;
@@ -144,72 +149,6 @@ class MySqlAppointmentsRepository {
     }
   }
 
-  async findByMedicId(medicId, limit, offset) {
-    try {
-      const [rows] = await this.pool.query(
-        `
-          SELECT
-            id,
-            medic_id,
-            patient_id,
-            center_id,
-            speciality_id,
-            status,
-            DATE_FORMAT(starts_at, '%Y-%m-%d %H:%i:%s') AS starts_at,
-            DATE_FORMAT(ends_at, '%Y-%m-%d %H:%i:%s') AS ends_at,
-            DATE_FORMAT(confirmed_at, '%Y-%m-%d %H:%i:%s') AS confirmed_at,
-            DATE_FORMAT(checked_in_at, '%Y-%m-%d %H:%i:%s') AS checked_in_at,
-            DATE_FORMAT(cancelled_at, '%Y-%m-%d %H:%i:%s') AS cancelled_at,
-            DATE_FORMAT(completed_at, '%Y-%m-%d %H:%i:%s') AS completed_at,
-            DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
-          FROM appointments
-          WHERE medic_id = ?
-          ORDER BY starts_at ASC, id ASC
-          LIMIT ?
-          OFFSET ?
-      `,
-      [medicId, limit, offset]
-    );
-
-      return { success: true, data: rows };    
-    } catch (error) {
-      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
-    }
-  }
-
-  async findByPatientId(patientId, limit, offset) {
-    try {
-      const [rows] = await this.pool.query(
-        `
-          SELECT
-            id,
-            medic_id,
-            patient_id,
-            center_id,
-            speciality_id,
-            status,
-            DATE_FORMAT(starts_at, '%Y-%m-%d %H:%i:%s') AS starts_at,
-            DATE_FORMAT(ends_at, '%Y-%m-%d %H:%i:%s') AS ends_at,
-            DATE_FORMAT(confirmed_at, '%Y-%m-%d %H:%i:%s') AS confirmed_at,
-            DATE_FORMAT(checked_in_at, '%Y-%m-%d %H:%i:%s') AS checked_in_at,
-            DATE_FORMAT(cancelled_at, '%Y-%m-%d %H:%i:%s') AS cancelled_at,
-            DATE_FORMAT(completed_at, '%Y-%m-%d %H:%i:%s') AS completed_at,
-            DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
-          FROM appointments
-          WHERE patient_id = ?
-          ORDER BY starts_at ASC, id ASC
-          LIMIT ?
-          OFFSET ?
-        `,
-        [patientId, limit, offset]
-      );
-
-      return { success: true, data: rows };
-    } catch (error) {
-      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
-    }
-  }
-
   async confirm(appointmentId) {
     try{
       const [result] = await this.pool.query(
@@ -217,7 +156,7 @@ class MySqlAppointmentsRepository {
           UPDATE appointments
           SET
             status = 'CONFIRMED',
-            confirmed_at = CURRENT_TIMESTAMP
+            confirmed_at = ${this.buenosAiresNow}
           WHERE id = ?
             AND status = 'PENDING_CONFIRMATION';
         `,
@@ -237,7 +176,7 @@ class MySqlAppointmentsRepository {
           UPDATE appointments
           SET
             status = 'CHECKED_IN',
-            checked_in_at = CURRENT_TIMESTAMP
+            checked_in_at = ${this.buenosAiresNow}
           WHERE id = ?
             AND status = 'CONFIRMED'
         `,
@@ -250,6 +189,26 @@ class MySqlAppointmentsRepository {
     }
   }
 
+  async start(appointmentId) {
+    try{
+      const [result] = await this.pool.query(
+        `
+          UPDATE appointments
+          SET
+            status = 'IN_PROGRESS',
+            started_at = ${this.buenosAiresNow}
+          WHERE id = ?
+            AND status = 'CHECKED_IN'
+        `,
+        [appointmentId]
+      );
+
+      return { success: true, data: { affectedRows: result.affectedRows > 0 } };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
   async complete(appointmentId) {
     try{
       const [result] = await this.pool.query(
@@ -257,9 +216,9 @@ class MySqlAppointmentsRepository {
           UPDATE appointments
           SET
             status = 'COMPLETED',
-            completed_at = CURRENT_TIMESTAMP
+            completed_at = ${this.buenosAiresNow}
           WHERE id = ?
-            AND status = 'CHECKED_IN'
+            AND status = 'IN_PROGRESS'
         `,
         [appointmentId]
       );
@@ -277,7 +236,7 @@ class MySqlAppointmentsRepository {
           UPDATE appointments
           SET
             status = 'CANCELLED',
-            cancelled_at = CURRENT_TIMESTAMP
+            cancelled_at = ${this.buenosAiresNow}
           WHERE id = ?
             AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED')
         `,
@@ -290,17 +249,35 @@ class MySqlAppointmentsRepository {
     }
   }
 
-  async expirePendingConfirmationsBeforeNow() {
+  async findPendingAppointmentsToExpire() {
+    try{
+      const [result] = await this.pool.query(
+        `
+          SELECT id 
+          FROM appointments
+          WHERE starts_at between ${this.buenosAiresNow} - interval 2 minute and ${this.buenosAiresNow}
+            AND status = 'PENDING_CONFIRMATION'
+        `
+      );
+
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
+  async expirePendingAppointment(appointmentId) {
     try{
       const [result] = await this.pool.query(
         `
           UPDATE appointments
           SET
             status = 'EXPIRED',
-            cancelled_at = CURRENT_TIMESTAMP
-          WHERE status = 'PENDING_CONFIRMATION'
-            AND starts_at < CURRENT_TIMESTAMP
-        `
+            expired_at = ${this.buenosAiresNow}
+          WHERE id = ?
+            AND status = 'PENDING_CONFIRMATION'
+        `,
+        [appointmentId]
       );
 
       return { success: true, data: { affectedRows: result.affectedRows > 0 } };
@@ -309,14 +286,52 @@ class MySqlAppointmentsRepository {
     }
   }
 
-  async reschedule (data, id) {
+  async findPendingAppointmentsToRemind() {
+    try{
+      const [result] = await this.pool.query(
+        `
+          SELECT id 
+          FROM appointments
+          WHERE starts_at between ${this.buenosAiresNow} - interval 1 day and ${this.buenosAiresNow} -- last day
+            AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED')
+            AND reminded_at IS NULL
+        `
+      );
+
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
+  async remindPendingAppointment(appointmentId) {
     try{
       const [result] = await this.pool.query(
         `
           UPDATE appointments
           SET
-             starts_at = ?,
-             ends_at = ?
+            reminded_at = ${this.buenosAiresNow}
+          WHERE id = ?
+            AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED')
+        `,
+        [appointmentId]
+      );
+
+      return { success: true, data: { affectedRows: result.affectedRows > 0 } };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
+  async reschedule(id, data) {
+    try{
+      const [result] = await this.pool.query(
+        `
+          UPDATE appointments
+          SET
+            starts_at = ?,
+            ends_at = ?,
+            status = 'PENDING_CONFIRMATION'
           WHERE id = ?
             AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED')
         `,
@@ -361,6 +376,70 @@ class MySqlAppointmentsRepository {
       );
 
       return { success: true, data: rows };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
+  async delete(appointmentId) {
+    try{
+      const [result] = await this.pool.query(
+        `
+          DELETE FROM appointments
+          WHERE id = ?;
+        `,
+        [appointmentId]
+      );
+
+      return { success: true, data: { affectedRows: result.affectedRows > 0 } };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
+  async rollbackStatusChange(appointmentId, originalStatus) {
+    try{
+      const [result] = await this.pool.query(
+        `
+          UPDATE appointments
+          SET status = ?
+          WHERE id = ?
+        `,
+        [originalStatus, appointmentId]
+      );
+
+      return { success: true, data: { affectedRows: result.affectedRows > 0 } };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
+  async saveNotification(appointmentId, notificationUuid, reason) {
+    try{
+      const [result] = await this.pool.query(
+        `
+          INSERT INTO appointments_notifications (id, notification_uuid, reason)
+          VALUES (?, ?, ?)
+        `,
+        [appointmentId, notificationUuid, reason]
+      );
+      return { success: true, data: { affectedRows: result.affectedRows > 0 } };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
+  async getNotificationUuid(appointmentId) {
+    try{
+      const [rows] = await this.pool.query(
+        `
+          SELECT notification_uuid
+          FROM appointments_notifications
+          WHERE id = ? AND reason = 'createAppointment'
+        `,
+        [appointmentId]
+      );
+      return { success: true, data: rows[0] ?? null };
     } catch (error) {
       return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }

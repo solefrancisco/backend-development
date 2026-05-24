@@ -1,4 +1,8 @@
-const { buildAppointmentsController } = require('@apps2/bootstrap/appointments.bootstrap');
+const { 
+    buildAppointmentsController, 
+    buildAppointmentExpirationJob,
+    buildAppointmentReminderJob
+ } = require('@apps2/bootstrap/appointments.bootstrap');
 const { buildSpecialitiesController } = require('@apps2/bootstrap/specialities.bootstrap');
 const { buildMedicalCentersController } = require('@apps2/bootstrap/medical-centers.bootstrap');
 const { env } = require('@apps2/configs/env.config');
@@ -8,6 +12,8 @@ function buildDependencies() {
     
     if (env.appointmentsEnabled) {
         dependencies.appointmentsController = buildAppointmentsController();
+        buildAppointmentExpirationJob().start();
+        buildAppointmentReminderJob().start();
     }
 
     if (env.specialitiesEnabled) {
