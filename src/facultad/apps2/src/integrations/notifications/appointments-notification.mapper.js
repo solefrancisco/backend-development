@@ -9,7 +9,7 @@ function getFormattedTimestamp(){
 
 function getDefaultNotificationTemplate(data, appointmentId, notificationTemplate) {
     const notificationData = data.data || data; // Handle both cases where data is nested under 'data' or is the root object
-    
+
     return {
         notify_by: 'email',
         notification_type: notificationTemplate,
@@ -17,7 +17,7 @@ function getDefaultNotificationTemplate(data, appointmentId, notificationTemplat
             id: appointmentId,
             starts_at: notificationData.appointment.starts_at,
             speciality_name: notificationData.appointment.speciality_name,
-            medical_center_name: notificationData.appointment.medical_center_name ?? 'test',
+            medical_center_name: notificationData.appointment.medical_center_name,
         },
         patient: {
             fullname: notificationData.patient.fullname,
@@ -30,7 +30,8 @@ function getDefaultNotificationTemplate(data, appointmentId, notificationTemplat
     };
 }
 function generateCreateAppointmentNotification(data, appointmentId, notificationTemplate) {
-    return getDefaultNotificationTemplate(data, appointmentId, notificationTemplate);
+    const notification = getDefaultNotificationTemplate(data, appointmentId, notificationTemplate);
+    return notification;
 }
 
 function generateRescheduleAppointmentNotification(data, appointmentId, notificationTemplate) {

@@ -1,14 +1,6 @@
 const { z } = require('zod');
 
 const getMedicalCentersSchema = z.object({
-  id: z
-    .coerce.number({
-      invalid_type_error: 'id must be a number'
-    })
-    .int('id must be an integer')
-    .positive('id must be a positive integer')
-    .optional(),
-
   name: z
     .string({
       invalid_type_error: 'name must be a string'
@@ -29,12 +21,18 @@ const getMedicalCentersSchema = z.object({
     .coerce.number({
       invalid_type_error: 'lat must be a number'
     })
+    .finite('lat must be a valid number')
+    .min(-90, 'lat must be greater than or equal to -90')
+    .max(90, 'lat must be less than or equal to 90')
     .optional(),
 
   lng: z
     .coerce.number({
       invalid_type_error: 'lng must be a number'
     })
+    .finite('lng must be a valid number')
+    .min(-180, 'lng must be greater than or equal to -180')
+    .max(180, 'lng must be less than or equal to 180')
     .optional(),
 
   page: z

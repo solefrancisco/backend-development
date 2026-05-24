@@ -5,41 +5,41 @@ class MySqlAppointmentsRepository {
   }
 
   async filter(queryFilters, query) {
-      let conditions = [];
-      let values = [queryFilters.since, queryFilters.until];
-      let page = 1;
+    let conditions = [];
+    let values = [queryFilters.since, queryFilters.until];
+    let page = 1;
 
-      if (queryFilters.patient_id) {
-        conditions.push('patient_id = ?');
-        values.push(queryFilters.patient_id);
-      }
+    if (queryFilters.patient_id) {
+      conditions.push('patient_id = ?');
+      values.push(queryFilters.patient_id);
+    }
 
-      if (queryFilters.medic_id) {
-        conditions.push('medic_id = ?');
-        values.push(queryFilters.medic_id);
-      }
+    if (queryFilters.medic_id) {
+      conditions.push('medic_id = ?');
+      values.push(queryFilters.medic_id);
+    }
 
-      if (queryFilters.medical_center_id) {
-        conditions.push('center_id = ?');
-        values.push(queryFilters.medical_center_id);
-      }
+    if (queryFilters.medical_center_id) {
+      conditions.push('center_id = ?');
+      values.push(queryFilters.medical_center_id);
+    }
 
-      if(queryFilters.speciality_id) {
-        conditions.push('speciality_id = ?');
-        values.push(queryFilters.speciality_id);
-      }
-      
-      query += " WHERE starts_at between ? AND ? AND status NOT IN ('EXPIRED', 'CANCELLED') ";
+    if(queryFilters.speciality_id) {
+      conditions.push('speciality_id = ?');
+      values.push(queryFilters.speciality_id);
+    }
+    
+    query += " WHERE starts_at between ? AND ? AND status NOT IN ('EXPIRED', 'CANCELLED') ";
 
-      if (conditions.length > 0) {
-        query += ` AND ${conditions.join(' AND ')}`;
-      }
+    if (conditions.length > 0) {
+      query += ` AND ${conditions.join(' AND ')}`;
+    }
 
-      if (queryFilters.page) {
-        page = Number(queryFilters.page);
-      }
+    if (queryFilters.page) {
+      page = Number(queryFilters.page);
+    }
 
-      return { query, conditions, values, page };
+    return { query, conditions, values, page };
   }
 
   async create(data) {
@@ -386,6 +386,22 @@ class MySqlAppointmentsRepository {
       const [result] = await this.pool.query(
         `
           DELETE FROM appointments
+          WHERE id = ?;
+        `,
+        [appointmentId]
+      );
+
+      return { success: true, data: { affectedRows: result.affectedRows > 0 } };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
+    async deleteSavedNotification(appointmentId) {
+    try{
+      const [result] = await this.pool.query(
+        `
+          DELETE FROM appointments_notifications
           WHERE id = ?;
         `,
         [appointmentId]

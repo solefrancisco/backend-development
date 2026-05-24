@@ -10,13 +10,12 @@ class MedicalCentersService {
 
     async getMedicalCenters (query) {
         const quantity = await this.medicalcenterRepository.count(query);
-
         if (!quantity.success) 
             throw new InternalServerError ('Failed to paginate medical centers: ' + quantity.errorMessage);
+
         const totalItems = quantity.data;
         if (totalItems===0) 
             throw new NotFoundError ('No medical centers found for the given criteria');
-        
 
         const totalPages = Math.ceil(totalItems / paginationConfig.defaultPageSize);
         if (query.page > totalPages)
@@ -24,9 +23,8 @@ class MedicalCentersService {
 
         const result = await this.medicalcenterRepository.findAll(paginationConfig.defaultPageSize, query);
         if (!result.success) 
-            throw new BadRequestError ('Failed to retrieve medical centers: ');
+            throw new BadRequestError ('Failed to retrieve medical centers: ' + result.errorMessage);
         
-
         return {
             medicalCenters: result.data,
             pagination: {
@@ -40,10 +38,11 @@ class MedicalCentersService {
     async getMedicalCentersById (id) {
         const response = await this.medicalcenterRepository.findById (id);
         if (!response.success) 
-            throw new BadRequestError ('Failed to retrieve medical center: ');
+            throw new BadRequestError ('Failed to retrieve medical center: ' + response.errorMessage);
 
         if (!response.data) 
-            throw new NotFoundError (`medical center id ${id} not found`)
+            throw new NotFoundError (`Medical center id ${id} not found`)
+
         return response.data;
     };
 

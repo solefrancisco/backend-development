@@ -22,6 +22,7 @@ class AppointmentsService {
         if(mockConfig.enabled) {
             // if mocking is enabled, we check in our database to avoid creating appointments with non existing data
             await this.specialitiesService.getSpecialityById(data.appointment.speciality_id);
+            await this.medicalCentersService.getMedicalCentersById(data.appointment.center_id);
         }
 
         const result = await this.appointmentsRepository.create(data);
@@ -36,34 +37,36 @@ class AppointmentsService {
         let notificationPayload = data;
         if (mockConfig.enabled) {
             const adaptedData = { data: [data] }; // adapt to mockData format
-            notificationPayload = await this.mockData(adaptedData, { mockUsers: false, mockSpecialities: true, fromGet: false });
+            notificationPayload = await this.mockData(adaptedData, { mockUsers: false, mockSpecialities: true, mockMedicalCenter: true, fromGet: false });
             notificationPayload = notificationPayload.data[0]; // extract the appointment data
         }
 
-        try{
-            const appointmentId = result.data;
-            const emailNotification = {
-                notify_by: 'email',
-                notification_type: 'createAppointment',
-            }
-            const queued = await this.queueNotificationForAppointment(appointmentId, notificationPayload, emailNotification);
-            if (!queued.success)
-                throw new InternalServerError('Failed to queue notification for appointment id ' + appointmentId);
+        const appointmentId = result.data;
+        const emailNotification = {
+            notify_by: 'email',
+            notification_type: 'createAppointment',
+        }
 
-            const notificationId = queued.requestId;
-            return { appointment_id: appointmentId, notification_id: notificationId };
-        } catch (error) {
-            console.error(`Error occurred while sending notification for appointment id ${appointmentId}: ${error.message}`);
-            const rollbackResult = await this.appointmentsRepository.delete(appointmentId);
+        const queued = await this.queueNotificationForAppointment(appointmentId, notificationPayload, emailNotification);
+        if (!queued.success) {
+            console.error(`Error occurred while queuing notification for appointment id ${appointmentId}: ${queued.errorMessage}`);
+            const deleteAppointmentNotification = await this.appointmentsRepository.deleteSavedNotification(appointmentId);
 
-            let thrownErrorMessage = !rollbackResult.success ?
-                'Failed to rollback appointment creation for appointment id ' + appointmentId + ': ' + rollbackResult.errorMessage
+            if (!deleteAppointmentNotification.success)
+                throw new InternalServerError('Fail during rollback when trying to delete saved notification for appointment id ' + appointmentId + ': ' + deleteAppointmentNotification.errorMessage);
+            
+            const deleteAppointment = await this.appointmentsRepository.delete(appointmentId);
+            const thrownErrorMessage = !deleteAppointment.success ?
+                'Failed to rollback appointment creation for appointment id ' + appointmentId + ': ' + deleteAppointment.errorMessage
                 :
                 'Rolled back appointment creation for appointment id ' + appointmentId + " due to it was not possible to send the notification";
 
             throw new InternalServerError(thrownErrorMessage);
-        }
-    }
+        } 
+
+        const notificationId = queued.requestId;
+        return { appointment_id: appointmentId, notification_id: notificationId };
+    } 
 
     async findOccupiedAppointments(query) {
         const result = await this.appointmentsRepository.findOccupiedAppointments(query);
@@ -119,6 +122,7 @@ class AppointmentsService {
         if (mockConfig.enabled) {
             const result = { data: [response.data] }; // adapt to mockData format
             response = await this.mockData(result);
+            return response.data[0]; // extract the appointment data
         }
 
         return response.data;
@@ -331,12 +335,16 @@ class AppointmentsService {
 
     async queueNotificationForAppointment(appointmentId, notificationPayload, emailNotification, notificationUuid = crypto.randomUUID()) {
         const savedNotification = await this.appointmentsRepository.saveNotification(appointmentId, notificationUuid, emailNotification.notification_type);
-        if (!savedNotification.success)
-            throw new InternalServerError('Failed to save notification for appointment id ' + appointmentId + ': ' + savedNotification.errorMessage);
-
+        if (!savedNotification.success){
+            console.error('Failed to save notification for appointment id ' + appointmentId + ': ' + savedNotification.errorMessage);
+            return { success: false, errorMessage: savedNotification.errorMessage };
+        }
+        
         const queued = await this.notificationsClient.sendAppointmentNotification(notificationPayload, appointmentId, emailNotification, notificationUuid);
-        if (!queued.success)
-            throw new InternalServerError('Failed to queue notification for appointment id ' + appointmentId);
+        if (!queued.success){
+            console.error('Failed to queue notification for appointment id ' + appointmentId);
+            return { success: false, errorMessage: queued.errorMessage };
+        }
 
         return { success: true, requestId: notificationUuid };
     }
@@ -348,7 +356,7 @@ class AppointmentsService {
         return await this.getAppointments(query);
     }
 
-    async mockData(result, {mockUsers=true, mockSpecialities=true, fromGet=true} = {}) {
+    async mockData(result, {mockUsers=true, mockSpecialities=true, mockMedicalCenter=true, fromGet=true} = {}) {
         let mockedUsers;
 
         if (mockUsers) {
@@ -376,25 +384,32 @@ class AppointmentsService {
                 delete appointment.medic_id;
                 delete appointment.patient_id;
             }
-
+            
+            const currentAppointmentData = (fromGet) ? appointment : appointment.appointment;
             if(mockSpecialities) {
-                let specialityId;
-
-                if (fromGet) {
-                    specialityId = appointment.speciality_id;
-                } else {
-                    specialityId = appointment.appointment.speciality_id;
-                }
-
+                const specialityId = currentAppointmentData.speciality_id;
                 const specialityResponse = await this.specialitiesService.getSpecialityById(specialityId);
 
                 if (fromGet) {
                     appointment.speciality = specialityResponse;
-                    delete appointment.speciality_id;
                 } else {
                     appointment.appointment.speciality_name = specialityResponse.name;
-                    delete appointment.appointment.speciality_id;
                 }
+
+                delete appointment.speciality_id;
+            }
+
+            if(mockMedicalCenter) {
+                const medicalCenterId = currentAppointmentData.center_id;
+                const medicalCenterResponse = await this.medicalCentersService.getMedicalCentersById(medicalCenterId);
+
+                if (fromGet) {
+                    appointment.medical_center = medicalCenterResponse;
+                } else {
+                    appointment.appointment.medical_center_name = medicalCenterResponse.name;
+                }
+
+                delete appointment.center_id;
             }
         }
 
