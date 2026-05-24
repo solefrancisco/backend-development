@@ -331,8 +331,7 @@ class MySqlAppointmentsRepository {
         `
           SELECT id 
           FROM appointments
-          -- WHERE starts_at between ${this.buenosAiresNow} - interval 2 minute and ${this.buenosAiresNow}
-          WHERE starts_at < ${this.buenosAiresNow}
+          WHERE starts_at between ${this.buenosAiresNow} - interval 2 minute and ${this.buenosAiresNow}
             AND status = 'CONFIRMED'
             AND absent_at IS NULL
         `
