@@ -6,6 +6,7 @@ const { env } = require('@apps2/configs/env.config');
 const { buildNotificationsClient } = require('@apps2/bootstrap/notifications.bootstrap');
 const { AppointmentExpirationJob } = require('@apps2/jobs/appointment-expiration.job');
 const { AppointmentReminderJob } = require('@apps2/jobs/appointment-reminder.job');
+const { AppointmentAbsenceJob } = require('@apps2/jobs/appointment-absence.job');
 
 // just for mocking purposes, to avoid circular dependencies
 function mockRequiredDependencies() {
@@ -60,6 +61,14 @@ function buildAppointmentReminderJob() {
     });
 }
 
+function buildAppointmentAbsenceJob() {
+    const appointmentsService = buildAppointmentsService();
+
+    return new AppointmentAbsenceJob(appointmentsService, {
+        intervalMs: env.appointmentsAbsenceIntervalMs,
+    });
+}
+
 function buildAppointmentsRepository() {
     return buildMySqlRepository();
 }
@@ -75,4 +84,5 @@ module.exports = {
     buildAppointmentsService,
     buildAppointmentExpirationJob,
     buildAppointmentReminderJob,
+    buildAppointmentAbsenceJob
 };

@@ -75,6 +75,7 @@ class MySqlAppointmentsRepository {
             DATE_FORMAT(ends_at, '%Y-%m-%d %H:%i:%s') AS ends_at,
             DATE_FORMAT(expired_at, '%Y-%m-%d %H:%i:%s') AS expired_at,
             DATE_FORMAT(confirmed_at, '%Y-%m-%d %H:%i:%s') AS confirmed_at,
+            DATE_FORMAT(absent_at, '%Y-%m-%d %H:%i:%s') AS absent_at,
             DATE_FORMAT(checked_in_at, '%Y-%m-%d %H:%i:%s') AS checked_in_at,
             DATE_FORMAT(cancelled_at, '%Y-%m-%d %H:%i:%s') AS cancelled_at,
             DATE_FORMAT(completed_at, '%Y-%m-%d %H:%i:%s') AS completed_at,
@@ -106,6 +107,7 @@ class MySqlAppointmentsRepository {
             DATE_FORMAT(a.starts_at, '%Y-%m-%d %H:%i:%s') AS starts_at,
             DATE_FORMAT(a.ends_at, '%Y-%m-%d %H:%i:%s') AS ends_at,
             DATE_FORMAT(a.confirmed_at, '%Y-%m-%d %H:%i:%s') AS confirmed_at,
+            DATE_FORMAT(a.absent_at, '%Y-%m-%d %H:%i:%s') AS absent_at,
             DATE_FORMAT(a.expired_at, '%Y-%m-%d %H:%i:%s') AS expired_at,
             DATE_FORMAT(a.checked_in_at, '%Y-%m-%d %H:%i:%s') AS checked_in_at,
             DATE_FORMAT(a.cancelled_at, '%Y-%m-%d %H:%i:%s') AS cancelled_at,
@@ -313,6 +315,45 @@ class MySqlAppointmentsRepository {
             reminded_at = ${this.buenosAiresNow}
           WHERE id = ?
             AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED')
+        `,
+        [appointmentId]
+      );
+
+      return { success: true, data: { affectedRows: result.affectedRows > 0 } };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
+  async findAppointmentsToSetAsAbsent() {
+    try{
+      const [result] = await this.pool.query(
+        `
+          SELECT id 
+          FROM appointments
+          -- WHERE starts_at between ${this.buenosAiresNow} - interval 2 minute and ${this.buenosAiresNow}
+          WHERE starts_at < ${this.buenosAiresNow}
+            AND status = 'CONFIRMED'
+            AND absent_at IS NULL
+        `
+      );
+
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
+  async setAppointmentAsAbsent(appointmentId) {
+    try{
+      const [result] = await this.pool.query(
+        `
+          UPDATE appointments
+          SET
+            status = 'ABSENT',
+            absent_at = ${this.buenosAiresNow}
+          WHERE id = ?
+            AND status = 'CONFIRMED'
         `,
         [appointmentId]
       );

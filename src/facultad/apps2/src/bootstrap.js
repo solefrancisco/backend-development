@@ -1,7 +1,8 @@
 const { 
     buildAppointmentsController, 
     buildAppointmentExpirationJob,
-    buildAppointmentReminderJob
+    buildAppointmentReminderJob,
+    buildAppointmentAbsenceJob
  } = require('@apps2/bootstrap/appointments.bootstrap');
 const { buildSpecialitiesController } = require('@apps2/bootstrap/specialities.bootstrap');
 const { buildMedicalCentersController } = require('@apps2/bootstrap/medical-centers.bootstrap');
@@ -14,6 +15,7 @@ function buildDependencies() {
         dependencies.appointmentsController = buildAppointmentsController();
         buildAppointmentExpirationJob().start();
         buildAppointmentReminderJob().start();
+        buildAppointmentAbsenceJob().start();
     }
 
     if (env.specialitiesEnabled) {

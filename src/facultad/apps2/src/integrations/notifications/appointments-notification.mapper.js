@@ -81,6 +81,11 @@ function generateReminderAppointmentNotification(data, appointmentId, notificati
     return notification;
 }
 
+function generateAbsentAppointmentNotification(data, appointmentId, notificationTemplate) {
+    const notification = getDefaultNotificationTemplate(data, appointmentId, notificationTemplate);
+    return notification;
+}
+
 module.exports = {
     generateCreateAppointmentNotification,
     generateRescheduleAppointmentNotification,
@@ -89,5 +94,6 @@ module.exports = {
     generateCheckInAppointmentNotification,
     generateFinishAppointmentNotification,
     generateExpiredAppointmentNotification,
-    generateReminderAppointmentNotification
+    generateReminderAppointmentNotification,
+    generateAbsentAppointmentNotification
 };

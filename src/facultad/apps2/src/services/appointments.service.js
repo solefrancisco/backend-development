@@ -256,9 +256,35 @@ class AppointmentsService {
         return { message: `Reminded ${totalToRemind} pending appointments` };
     }
 
+    async setAppointmentsAsAbsent() {
+        const appointmentsToSetAsAbsent = await this.appointmentsRepository.findAppointmentsToSetAsAbsent();
+        if (!appointmentsToSetAsAbsent.success)
+            throw new InternalServerError('Failed to retrieve confirmed appointments to set as absent: ' + appointmentsToSetAsAbsent.errorMessage);
+
+        const totalToSetAsAbsent = appointmentsToSetAsAbsent.data.length;
+        if (totalToSetAsAbsent === 0)
+            return { message: 'No confirmed appointments to set as absent' };
+        
+        for (const appointment of appointmentsToSetAsAbsent.data) {
+            const id = appointment.id;
+            const perform = {
+                action: 'absentAppointment',
+                output: "absent",
+                repositoryFunction: (id) => this.appointmentsRepository.setAppointmentAsAbsent(id),
+            };
+
+            try{
+                await this.updateAppointmentStatusAndNotify(id, perform);
+            } catch (error) {
+                continue; // continue with the next appointment, we don't want one failure to stop the whole expiration process
+            }
+        }
+
+        return { message: `Set as absent ${totalToSetAsAbsent} confirmed appointments` };
+    }
     async getAppointmentStatus(id) {
         const appointmentInformation = await this.getAppointmentById(id);
-        const originalStatus = appointmentInformation[0].status;
+        const originalStatus = appointmentInformation.status;
         return originalStatus;
     }
 
@@ -326,7 +352,7 @@ class AppointmentsService {
 
         const checkNotificationUuid = getNotificationOriginalUuid.data.notification_uuid;
 
-        const notificationData = await this.notificationsClient.getNotification(checkNotificationUuid, requestId);
+        const notificationData = await this.notificationsClient.getNotification(checkNotificationUuid, appointmentId, requestId);
         if (!notificationData.success)
             throw new InternalServerError('Failed to retrieve original contact data from notification service for appointment id ' + appointmentId);
 

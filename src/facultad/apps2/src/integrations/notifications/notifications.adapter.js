@@ -8,7 +8,8 @@ const {
     generateCheckInAppointmentNotification,
     generateFinishAppointmentNotification,
     generateExpiredAppointmentNotification,
-    generateReminderAppointmentNotification
+    generateReminderAppointmentNotification,
+    generateAbsentAppointmentNotification
 } = require('@apps2/integrations/notifications/appointments-notification.mapper');
 
 class NotificationsAdapter {
@@ -45,6 +46,10 @@ class NotificationsAdapter {
       expiredAppointment: {
         template: 'appointment_expired',
         generator: generateExpiredAppointmentNotification,
+      },
+      absentAppointment: {
+        template: 'appointment_absent',
+        generator: generateAbsentAppointmentNotification,
       }
     };
   }

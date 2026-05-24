@@ -14,7 +14,7 @@ class NotificationsClient {
             payload = this.notificationsAdapter.generateEmailNotification(payload, appointmentId, notificationStrategy.notification_type);
         }
 
-        console.log(`${requestId} - Sending ${notificationStrategy.notify_by} notification for appointment id ${appointmentId} to notifier`);
+        console.log(`${requestId} - Sending ${notificationStrategy.notify_by} notification for appointment id ${appointmentId} to notifier due to ${notificationStrategy.notification_type} event`);
         const startedAt = performance.now();
         const response = await fetch(toUrl, {
             method: 'POST',
@@ -37,10 +37,10 @@ class NotificationsClient {
         return { success };
     }
 
-    async getNotification(notificationUuid, requestId) {
+    async getNotification(notificationUuid, appointmentId, requestId) {
         const toUrl = `${this.baseUrl}/api/v1/notifications/${notificationUuid}`;
 
-        console.log(`${requestId} - Retrieving notification ${notificationUuid} from notifier`);
+        console.log(`${requestId} - Retrieving notification ${notificationUuid} related to appointment id ${appointmentId} from notifier`);
         const startedAt = performance.now();
         const response = await fetch(toUrl, {
             method: 'GET',

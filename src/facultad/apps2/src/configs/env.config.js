@@ -68,6 +68,7 @@ module.exports = {
     mockedDataEnabled: getBoolean('APPS2_MOCKED_DATA'),
     appointmentsExpirationIntervalMs: getNumber('APPS2_APPOINTMENT_EXPIRATION_INTERVAL_MS'), 
     appointmentsReminderIntervalMs: getNumber('APPS2_APPOINTMENT_REMINDER_INTERVAL_MS'),
+    appointmentsAbsenceIntervalMs: getNumber('APPS2_APPOINTMENT_ABSENCE_INTERVAL_MS'),
 
     // INTEGRATIONS
     // Notifications
