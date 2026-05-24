@@ -259,6 +259,7 @@ class MySqlAppointmentsRepository {
           FROM appointments
           WHERE starts_at between ${this.buenosAiresNow} - interval 2 minute and ${this.buenosAiresNow}
             AND status = 'PENDING_CONFIRMATION'
+            and reminded_at IS NOT NULL
         `
       );
 
