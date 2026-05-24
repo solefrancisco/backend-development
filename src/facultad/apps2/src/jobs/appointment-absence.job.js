@@ -16,9 +16,7 @@ class AppointmentAbsenceJob {
     this.isRunning = true;
 
     try {
-      console.log('Running appointment absence job');
       const result = await this.appointmentsService.setAppointmentsAsAbsent();
-      console.log(result.message);
     } catch (error) {
       console.error('Failed to set appointments as absent', error);
     } finally {
