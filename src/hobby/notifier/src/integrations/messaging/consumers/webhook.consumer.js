@@ -6,7 +6,7 @@ async function processWebhookNotification(data) {
     const headers = { ...(data.request.headers || {}) };
 
     const requestOptions = {
-        method: 'POST',
+        method,
         headers,
     };
 
@@ -59,8 +59,19 @@ function getRetryCount(message) {
 }
 
 async function requeueMessage(channel, message, nextRetryCount) {
+    const retryQueueMapper = {
+        1: rabbitConfig.queues.webhook.retry1,
+        2: rabbitConfig.queues.webhook.retry2,
+        3: rabbitConfig.queues.webhook.retry3,
+    }
+
+    const targetQueue = nextRetryCount <= rabbitConfig.maxRetries
+        ? retryQueueMapper[nextRetryCount]
+        : rabbitConfig.queues.email.deadLetter;
+    
+
     const sent = channel.sendToQueue(
-        rabbitConfig.queues.webhook,
+        targetQueue,
         message.content,
         {
             persistent: true,
@@ -80,10 +91,10 @@ async function requeueMessage(channel, message, nextRetryCount) {
 async function startWebhookConsumer() {
     const channel = await connectRabbit();
 
-    await channel.assertQueue(rabbitConfig.queues.webhook, { durable: true });
+    await channel.assertQueue(rabbitConfig.queues.webhook.default, { durable: true });
     channel.prefetch(1);
 
-    channel.consume(rabbitConfig.queues.webhook, async (message) => {
+    channel.consume(rabbitConfig.queues.webhook.default, async (message) => {
         if (!message) {
             return;
         }
@@ -99,12 +110,8 @@ async function startWebhookConsumer() {
             const nextRetryCount = retryCount + 1;
 
             try {
-                if (nextRetryCount <= rabbitConfig.maxRetries) {
-                    await requeueMessage(channel, message, nextRetryCount);
-                    channel.ack(message);
-                } else {
-                    channel.nack(message, false, false);
-                }
+                await requeueMessage(channel, message, nextRetryCount);
+                channel.ack(message);
             } catch (requeueError) {
                 channel.nack(message, false, false);
             }
