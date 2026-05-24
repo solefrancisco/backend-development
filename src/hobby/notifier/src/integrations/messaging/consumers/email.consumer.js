@@ -86,7 +86,7 @@ async function startEmailConsumer(consumerRepository) {
             status = 'sent';
         } catch (error) {
             try { 
-                console.error(`${data?.request_id} - Error processing email notification:`, error);
+                console.error(`${data.request_id} - Error processing email notification:`, error);
                 const result = await requeueMessage(channel, message, retryCount);
                 await consumerRepository.updateRetryCount(data.request_id, result.retryCount);
 

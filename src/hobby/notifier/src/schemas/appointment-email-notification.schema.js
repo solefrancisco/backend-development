@@ -9,7 +9,8 @@ const appointmentsNotificationTypes = [
   'appointment_reminder',
   'appointment_checked_in',
   'appointment_finished',
-  'appointment_expired'
+  'appointment_expired',
+  'appointment_absent'
 ]; 
 const appointmentNotificationTypeEnum = z.enum(
   appointmentsNotificationTypes, { 

@@ -31,6 +31,9 @@ module.exports = {
         },
         appointment_expired: {
             from: `Turno expirado <cancelaciones@${env.smtpBaseDomain}>`
+        },
+        appointment_absent: {
+            from: `Ausencia de paciente <ausencias@${env.smtpBaseDomain}>`
         }
     }
   }

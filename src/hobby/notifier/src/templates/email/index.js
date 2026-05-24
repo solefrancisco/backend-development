@@ -7,6 +7,7 @@ const { renderAppointmentReminderTemplate } = require('./appointment-reminder.te
 const { renderAppointmentCheckedInTemplate } = require('./appointment-checked-in.template');
 const { renderAppointmentFinishedTemplate } = require('./appointment-finished.template');
 const { renderAppointmentExpiredTemplate } = require('./appointment-expired.template');
+const { renderAppointmentAbsentTemplate } = require('./appointment-absent.template');
 
 const templateMapper = {
     "appointment_pending_confirmation": renderAppointmentPendingConfirmationTemplate,
@@ -17,6 +18,7 @@ const templateMapper = {
     "appointment_checked_in": renderAppointmentCheckedInTemplate,
     "appointment_finished": renderAppointmentFinishedTemplate,
     "appointment_expired": renderAppointmentExpiredTemplate,
+    "appointment_absent": renderAppointmentAbsentTemplate
 };
 
 function renderEmailTemplate(data) {
