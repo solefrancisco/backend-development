@@ -8,7 +8,7 @@ const { paginationConfig } = require('@apps2/configs/pagination.config');
 const { mockConfig } = require('@apps2/configs/mock.config');
 
 class AppointmentsService {
-    constructor(appointmentsRepository, appointmentsUtils, specialitiesService, medicalCentersService) {
+    constructor(appointmentsRepository, appointmentsUtils, notificationsClient, specialitiesService, medicalCentersService) {
         this.appointmentsRepository = appointmentsRepository;
         this.appointmentsUtils = appointmentsUtils;
         this.notificationsClient = notificationsClient;

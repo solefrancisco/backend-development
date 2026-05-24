@@ -21,11 +21,14 @@ function mockRequiredDependencies() {
     return {};
 }
 function buildAppointmentsService() {
+    const dependencies = mockRequiredDependencies();
+    
     return new AppointmentsService(
         buildAppointmentsRepository(), 
         new AppointmentsUtils(), 
         buildNotificationsClient(), 
-        mockRequiredDependencies().specialitiesService
+        dependencies.specialitiesService,
+        dependencies.medicalCentersService
     );
 }
 
@@ -34,6 +37,7 @@ function buildAppointmentsController() {
     const appointmentsService = new AppointmentsService(
         buildAppointmentsRepository(),
         new AppointmentsUtils(), 
+        buildNotificationsClient(),
         dependencies.specialitiesService,
         dependencies.medicalCentersService
     );
