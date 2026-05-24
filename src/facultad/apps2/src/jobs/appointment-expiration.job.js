@@ -16,7 +16,9 @@ class AppointmentExpirationJob {
     this.isRunning = true;
 
     try {
+      console.log('Running appointment expiration job');
       const result = await this.appointmentsService.expirePendingAppointments();
+      console.log(result.message);
     } catch (error) {
       console.error('Failed to expire pending appointments', error);
     } finally {

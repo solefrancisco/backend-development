@@ -16,7 +16,9 @@ class AppointmentReminderJob {
         this.isRunning = true;
 
         try {
+            console.log('Running appointment reminder job');
             const result = await this.appointmentsService.remindPendingAppointments();
+            console.log(result.message);
         } catch (error) {
             console.error('Failed to remind pending appointments', error);
         } finally {
