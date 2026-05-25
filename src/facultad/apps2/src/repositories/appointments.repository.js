@@ -365,6 +365,24 @@ class MySqlAppointmentsRepository {
     }
   }
 
+  async checkAvailability(queryFilters) {
+    try {
+      const baseQuery = `
+        SELECT id
+        FROM appointments
+      `;
+
+      const { query, conditions, values, page } = await this.filter(queryFilters, baseQuery);
+      const [rows] = await this.pool.query(
+        query,
+        values
+      );
+      return { success: true, data: rows[0] ?? null };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
+
   async reschedule(id, data) {
     try{
       const [result] = await this.pool.query(

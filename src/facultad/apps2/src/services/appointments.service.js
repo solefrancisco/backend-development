@@ -178,7 +178,37 @@ class AppointmentsService {
             repositoryFunction: (id, data) => this.appointmentsRepository.reschedule(id, data),
         };
 
-        return await this.updateAppointmentStatusAndNotify(id, perform, data);
+        const appointmentInformation = await this.getAppointmentById(id);
+        const actualStatus = appointmentInformation.status;
+        const actualStartsAt = appointmentInformation.starts_at;
+        const actualEndsAt = appointmentInformation.ends_at;
+
+        if (actualStartsAt === data.starts_at)
+            throw new BadRequestError('The new start time must be different from the current one');
+
+        if (actualEndsAt === data.ends_at)
+            throw new BadRequestError('The new end time must be different from the current one');
+
+        const centerId = appointmentInformation.medical_center.id;
+        const medicId = appointmentInformation.medic.id;
+        const patientId = appointmentInformation.patient.id;
+
+        const checkData = {
+            center_id: centerId,
+            medic_id: medicId,
+            patient_id: patientId,
+            since: data.starts_at,
+            until: data.ends_at
+        }
+
+        const checkAvailabilityResult = await this.appointmentsRepository.checkAvailability(checkData);
+        if (!checkAvailabilityResult.success)
+            throw new InternalServerError('Failed to check availability for rescheduling: ' + checkAvailabilityResult.errorMessage);
+
+        if (checkAvailabilityResult.data)
+            throw new ConflictError('The request conflicts with an existing appointment (ID: ' + checkAvailabilityResult.data.id + ')');
+
+        return await this.updateAppointmentStatusAndNotify(id, perform, data, actualStatus);
     }
 
     async startAppointment(id) {
@@ -304,21 +334,21 @@ class AppointmentsService {
     }
 
     async updateAppointmentStatusAndNotify(id, perform, data = null, originalStatus = null) {
-        let status;
+        let rollbackStatus;
         if (!originalStatus) {
-            status = await this.getAppointmentStatus(id);
+            rollbackStatus = await this.getAppointmentStatus(id);
         } else{
-            status = originalStatus;
+            rollbackStatus = originalStatus;
         }
 
-        await this.updateAppointmentStatus(id, perform, status, data);
+        await this.updateAppointmentStatus(id, perform, rollbackStatus, data);
         const queued = await this.sendChangeStatusNotification(id, perform.action);
         
         if (!queued.success) {
-            const rollbackResult = await this.appointmentsRepository.rollbackStatusChange(id, status);
+            const rollbackResult = await this.appointmentsRepository.rollbackStatusChange(id, rollbackStatus);
 
             if (!rollbackResult.success) {
-                throw new InternalServerError(`Failed to perform operation on appointment and failed to rollback to original status (${status}). Manual intervention required for appointment id ${id}.`);
+                throw new InternalServerError(`Failed to perform operation on appointment and failed to rollback to original status (${rollbackStatus}). Manual intervention required for appointment id ${id}.`);
             }
         }
 
@@ -349,13 +379,13 @@ class AppointmentsService {
         if (!getNotificationOriginalUuid.data)
             // it's internal server error because this data should exist if we are trying to send a notification for an appointment, if it doesn't exist something went wrong in the appointment creation process
             throw new InternalServerError('No original contact data found for appointment id ' + appointmentId);
-
+        
         const checkNotificationUuid = getNotificationOriginalUuid.data.notification_uuid;
 
         const notificationData = await this.notificationsClient.getNotification(checkNotificationUuid, appointmentId, requestId);
         if (!notificationData.success)
             throw new InternalServerError('Failed to retrieve original contact data from notification service for appointment id ' + appointmentId);
-
+        
         return notificationData.data;
     }
 
