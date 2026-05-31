@@ -35,6 +35,10 @@ const getMedicalCentersSchema = z.object({
     .max(180, 'lng must be less than or equal to 180')
     .optional(),
 
+  sort_by: z
+    .enum(['name', 'distance'])
+    .optional(),
+
   page: z
     .coerce.number({
       invalid_type_error: 'page must be a number'
@@ -43,6 +47,23 @@ const getMedicalCentersSchema = z.object({
     .positive('page must be a positive integer')
     .default(1)
 
-}).strict();
+}).strict().superRefine((data, ctx) => {
+  const hasLat = data.lat !== undefined;
+  const hasLng = data.lng !== undefined;
+
+  if (hasLat !== hasLng) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'lat and lng must be provided together'
+    });
+  }
+
+  if (data.sort_by === 'distance' && (!hasLat || !hasLng)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'lat and lng are required when sort_by=distance'
+    });
+  }
+});
 
 module.exports = { getMedicalCentersSchema };

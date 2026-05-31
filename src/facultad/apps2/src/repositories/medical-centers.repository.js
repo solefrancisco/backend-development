@@ -18,12 +18,12 @@ class MySqlMedicalCentersRepository {
       values.push(`%${queryFilters.city.toLowerCase()}%`);
     }
 
-    if (queryFilters.lat) {
+    if (queryFilters.lat !== undefined) {
       conditions.push('lat BETWEEN ? AND ?');
       values.push(queryFilters.lat - 0.1, queryFilters.lat + 0.1);
     }
 
-    if (queryFilters.lng) {
+    if (queryFilters.lng !== undefined) {
       conditions.push('lng BETWEEN ? AND ?');
       values.push(queryFilters.lng - 0.1, queryFilters.lng + 0.1);
     }
@@ -73,8 +73,22 @@ class MySqlMedicalCentersRepository {
       `;
 
       const { query, conditions, values, page } = await this.filter(queryFilters, baseQuery);
+      const hasCoords = queryFilters.lat !== undefined && queryFilters.lng !== undefined;
+      const sortBy = queryFilters.sort_by ?? (hasCoords ? 'distance' : 'name');
+
+      let orderBy = ' ORDER BY name ASC, id ASC';
+      if (sortBy === 'distance' && hasCoords) {
+        orderBy = `
+          ORDER BY (6371 * ACOS(
+            COS(RADIANS(?)) * COS(RADIANS(lat)) * COS(RADIANS(lng) - RADIANS(?)) +
+            SIN(RADIANS(?)) * SIN(RADIANS(lat))
+          )) ASC, name ASC, id ASC
+        `;
+        values.push(queryFilters.lat, queryFilters.lng, queryFilters.lat);
+      }
+
       const offset = (page - 1) * limit;
-      const finalQuery = query + ' ORDER BY name ASC, id ASC LIMIT ? OFFSET ?';
+      const finalQuery = query + orderBy + ' LIMIT ? OFFSET ?';
       values.push(limit, offset);
 
       const [rows] = await this.pool.query(finalQuery, values);
