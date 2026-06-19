@@ -148,9 +148,6 @@ class AppointmentsService {
         const appointmentInformation = await this.getAppointmentById(id);
         const actualStatus = appointmentInformation.status;
 
-        if(actualStatus !== 'CONFIRMED')
-            throw new BadRequestError('Only confirmed appointments can be checked in');
-
         const maxHoursBeforeAppointment = 1;
         const appointmentStartsAt = new Date(appointmentInformation.starts_at.replace(' ', 'T') + '-03:00');
         const earliestAllowedCheckIn = new Date(appointmentStartsAt.getTime() - maxHoursBeforeAppointment * 60 * 60 * 1000);
@@ -218,8 +215,9 @@ class AppointmentsService {
             repositoryFunction: (id) => this.appointmentsRepository.start(id),
         };
 
-        await this.updateAppointmentStatus(id, perform);
-        return { message: `Appointment ${perform.output} successfully` };
+        const appointmentInformation = await this.getAppointmentById(id);
+        const actualStatus = appointmentInformation.status;
+        return await this.updateAppointmentStatus(id, perform, actualStatus);
     }
 
     async finishAppointment(id) {
@@ -229,7 +227,10 @@ class AppointmentsService {
             repositoryFunction: (id) => this.appointmentsRepository.complete(id),
         };
 
-        return await this.updateAppointmentStatusAndNotify(id, perform);
+        const appointmentInformation = await this.getAppointmentById(id);
+        const actualStatus = appointmentInformation.status;
+
+        return await this.updateAppointmentStatusAndNotify(id, perform, actualStatus);
     }
 
     async expirePendingAppointments() {
