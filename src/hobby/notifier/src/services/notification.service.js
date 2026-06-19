@@ -13,34 +13,89 @@ class NotificationService {
     }
 
     async queueNotification(apiKey, requestId, data) {
-        const hashed = hashHmac(apiKey);
-        const apiKeyValidation = await this.notificationRepository.validateApiKey(hashed);
+    const startTime = performance.now();
 
-        if (!apiKeyValidation.success)
-            throw new InternalServerError(`Database error during API key validation: ${apiKeyValidation.errorMessage}`);
+    console.log(
+        `${requestId} - [NOTIFIER] Received notification request | channel=${data.notify_by} | event=${data.notification_type}`
+    );
 
-        if (!apiKeyValidation.data)
-            throw new UnauthorizedError('Invalid or inactive API key');
+    const hashed = hashHmac(apiKey);
 
-        const apiKeyOwner = apiKeyValidation.data.owner;
-        const saveData = {
-            apiKeyOwner,
-            uuid: requestId,
-            notified_by: data.notify_by,
-            data: aesEncrypt(JSON.stringify(data))
-        }
-        const saveNotification = await this.notificationRepository.saveNotification(saveData);
+    const apiKeyValidation = await this.notificationRepository.validateApiKey(hashed);
 
-        if (!saveNotification.success)
-            throw new InternalServerError(`Failed to save notification: ${saveNotification.errorMessage}`);
-
-        const queue = data.notify_by === 'email' ? 'notifications.email' : 'notifications.webhook';
-        data.notification_sent_by = apiKeyOwner;
-        data.request_id = requestId;
-
-        await publishToQueue(queue, data);
-        return { message: `Notification ${requestId} queued successfully` };
+    if (!apiKeyValidation.success) {
+        console.error(
+            `${requestId} - [NOTIFIER] API key validation DB error | error=${apiKeyValidation.errorMessage}`
+        );
+        throw new InternalServerError(
+            `Database error during API key validation: ${apiKeyValidation.errorMessage}`
+        );
     }
+
+    if (!apiKeyValidation.data) {
+        console.warn(
+            `${requestId} - [NOTIFIER] Unauthorized API key attempt`
+        );
+        throw new UnauthorizedError('Invalid or inactive API key');
+    }
+
+    const apiKeyOwner = apiKeyValidation.data.owner;
+
+    console.log(
+        `${requestId} - [NOTIFIER] API key validated | owner=${apiKeyOwner}`
+    );
+
+    const saveData = {
+        apiKeyOwner,
+        uuid: requestId,
+        notified_by: data.notify_by,
+        data: aesEncrypt(JSON.stringify(data))
+    };
+
+    console.log(
+        `${requestId} - [NOTIFIER] Saving notification to DB`
+    );
+
+    const saveNotification =
+        await this.notificationRepository.saveNotification(saveData);
+
+    if (!saveNotification.success) {
+        console.error(
+            `${requestId} - [NOTIFIER] Failed to persist notification | error=${saveNotification.errorMessage}`
+        );
+        throw new InternalServerError(
+            `Failed to save notification: ${saveNotification.errorMessage}`
+        );
+    }
+
+    console.log(
+        `${requestId} - [NOTIFIER] Notification persisted | dbId=${saveNotification.data?.id}`
+    );
+
+    const queue =
+        data.notify_by === 'email'
+            ? 'notifications.email'
+            : 'notifications.webhook';
+
+    data.notification_sent_by = apiKeyOwner;
+    data.request_id = requestId;
+
+    console.log(
+        `${requestId} - [NOTIFIER] Publishing to queue | queue=${queue} | channel=${data.notify_by}`
+    );
+
+    await publishToQueue(queue, data);
+
+    const durationMs = Math.round(performance.now() - startTime);
+
+    console.log(
+        `${requestId} - [NOTIFIER] Successfully queued notification | duration=${durationMs}ms`
+    );
+
+    return {
+        message: `Notification ${requestId} queued successfully`
+    };
+}
 
     async getNotifications(query) {
         const quantity = await this.notificationRepository.count(query);

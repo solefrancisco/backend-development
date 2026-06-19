@@ -59,6 +59,9 @@ module.exports = {
     // MODULES
     notifierEnabled: getBoolean('NOTIFIER_NOTIFY_ENABLED'),
     apps2_environmentUrl: getRequired('APPS2_ENVIRONMENT_URL'),
+    //token para pegarle al modulo 6
+    Module_6_TOKEN: ('M6_TOKEN'),
+    Module_6_URL: ('M6_URL'),
 
     // RABBITMQ
     rabbitMQEnabled: getBoolean('NOTIFIER_RABBITMQ_ENABLED'),
