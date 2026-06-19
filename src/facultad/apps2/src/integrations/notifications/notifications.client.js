@@ -7,15 +7,29 @@ class NotificationsClient {
         this.notificationsAdapter = notificationsAdapter;
     }
 
-    async sendAppointmentNotification(payload, appointmentId, notificationStrategy, requestId) {
+async sendAppointmentNotification(payload, appointmentId, notificationStrategy, requestId) {
         const toUrl = `${this.baseUrl}/api/v1/notifications`;
 
         if (notificationStrategy.notify_by === 'email') {
-            payload = this.notificationsAdapter.generateEmailNotification(payload, appointmentId, notificationStrategy.notification_type);
-        }
+            payload = this.notificationsAdapter.generateEmailNotification(
+                payload,
+                appointmentId,
+                notificationStrategy.notification_type
+            );
+        } else if (notificationStrategy.notify_by === 'webhook') {
+            payload = this.notificationsAdapter.generateWebhookNotification(
+                payload,
+                appointmentId,
+                notificationStrategy.notification_type
+        );
+    }
 
-        console.log(`${requestId} - Sending ${notificationStrategy.notify_by} notification for appointment id ${appointmentId} to notifier due to ${notificationStrategy.notification_type} event`);
+        console.log(
+        `${requestId} - Sending ${notificationStrategy.notify_by} notification for appointment id ${appointmentId} due to ${notificationStrategy.notification_type}`
+    );
+
         const startedAt = performance.now();
+
         const response = await fetch(toUrl, {
             method: 'POST',
             headers: {
@@ -27,13 +41,25 @@ class NotificationsClient {
         });
 
         const durationMs = Math.round(performance.now() - startedAt);
-        console.log(`${requestId} - notifier response status ${response.status} in ${durationMs}ms`);
+
+        console.log(
+            `${requestId} - notifier response status ${response.status} in ${durationMs}ms`
+        );
 
         const success = response.status === 202;
+
         if (!success) {
-            const data = await response.json();
-            console.log(`${requestId} - Failed to queue notification from notifier. Response body: ${JSON.stringify(data)}`);
+            let errorBody = {};
+
+            try {
+                errorBody = await response.json();
+            } catch (_) {}
+
+            console.log(
+                `${requestId} - Failed to queue notification. Response body: ${JSON.stringify(errorBody)}`
+            );
         }
+
         return { success };
     }
 

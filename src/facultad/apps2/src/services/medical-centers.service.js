@@ -26,11 +26,11 @@ class MedicalCentersService {
             throw new BadRequestError ('Failed to retrieve medical centers: ' + result.errorMessage);
         
         return {
-            medicalCenters: result.data,
+            medical_centers: result.data,
             pagination: {
-                total_medicalCenters: totalItems,
+                total_medical_centers: totalItems,
                 total_pages: totalPages,
-                medicalCenters_per_page: paginationConfig.defaultPageSize
+                medical_centers_per_page: paginationConfig.defaultPageSize
             }
         };
     }

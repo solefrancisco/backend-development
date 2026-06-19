@@ -29,6 +29,37 @@ function getDefaultNotificationTemplate(data, appointmentId, notificationTemplat
         }
     };
 }
+
+function getWebhookNotificationTemplate(data, appointmentId, notificationTemplate) {
+    const notificationData = data.data || data;
+
+    return {
+        notify_by: 'webhook', // 👈 Pasa la validación z.literal('webhook')
+        request: {            // 👈 Abre el objeto obligatorio 'request'
+            // Sacamos la URL de destino de las variables de entorno
+            url: process.env.OPERATING_ROOM_WEBHOOK_URL || 'https://api.quirofano-externo.com/v1/webhook',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: { // 👈 Metemos los datos del evento adentro del body que viajará al tercero
+                notification_type: notificationTemplate,
+                appointment: {
+                    id: appointmentId,
+                    starts_at: notificationData.appointment.starts_at,
+                    speciality_name: notificationData.appointment.speciality_name,
+                    medical_center_name: notificationData.appointment.medical_center_name,
+                },
+                patient: {
+                    fullname: notificationData.patient.fullname,
+                },
+                // Si necesitas pasar el motivo de la cancelación que guardamos antes:
+                reason: data.reason || 'Cancelación de turno quirúrgico'
+            }
+        }
+    };
+}
+
 function generateCreateAppointmentNotification(data, appointmentId, notificationTemplate) {
     const notification = getDefaultNotificationTemplate(data, appointmentId, notificationTemplate);
     return notification;
@@ -86,6 +117,11 @@ function generateAbsentAppointmentNotification(data, appointmentId, notification
     return notification;
 }
 
+function generateWebhookNotification(data, appointmentId, notificationTemplate) {
+    const notification = getWebhookNotificationTemplate(data, appointmentId, notificationTemplate);
+    return notification;
+}
+
 module.exports = {
     generateCreateAppointmentNotification,
     generateRescheduleAppointmentNotification,
@@ -95,5 +131,6 @@ module.exports = {
     generateFinishAppointmentNotification,
     generateExpiredAppointmentNotification,
     generateReminderAppointmentNotification,
-    generateAbsentAppointmentNotification
+    generateAbsentAppointmentNotification,
+    generateWebhookNotification
 };

@@ -158,15 +158,30 @@ class AppointmentsService {
         return await this.updateAppointmentStatusAndNotify(id, perform, null, actualStatus);
     }
 
-    async cancelAppointment(id) {
-        const perform = {
-            action: 'cancelAppointment',
-            output: "cancelled",
-            repositoryFunction: (id) => this.appointmentsRepository.cancel(id),
-        };
+// 3. cancelAppointment: agregar notification_type al payload
+async cancelAppointment(id) {
+    const appointment = await this.getAppointmentById(id);
 
-        return await this.updateAppointmentStatusAndNotify(id, perform);
+    const perform = {
+        action: 'cancelAppointment',
+        output: 'cancelled',
+        repositoryFunction: (id) => this.appointmentsRepository.cancel(id),
+    };
+
+    let webhookPayload = null;
+
+    //solo si es la especialidad Quirófano, consultar con core cual es
+    if (appointment.speciality.id === 5) {
+        webhookPayload = {
+            notify_by: 'webhook',
+            notification_type: 'webhookOperationsRoom',
+            appointmentId: id,
+            reason: 'Paciente canceló el turno quirúrgico',
+        };
     }
+
+    return await this.updateAppointmentStatusAndNotify(id, perform, null, null, webhookPayload);
+}
 
     async rescheduleAppointment(id, data) {
         const perform = {
@@ -334,43 +349,84 @@ class AppointmentsService {
             throw new BadRequestError(`Appointment id ${id} was not found or status change was not allowed from ${originalStatus}`);
     }
 
-    async updateAppointmentStatusAndNotify(id, perform, data = null, originalStatus = null) {
-        let rollbackStatus;
-        if (!originalStatus) {
-            rollbackStatus = await this.getAppointmentStatus(id);
-        } else{
-            rollbackStatus = originalStatus;
+async updateAppointmentStatusAndNotify(id, perform, data = null, originalStatus = null, webhookPayload = null) {
+    const rollbackStatus = originalStatus ?? await this.getAppointmentStatus(id);
+
+    const rollback = async () => {
+        const rollbackResult = await this.appointmentsRepository.rollbackStatusChange(id, rollbackStatus);
+        if (!rollbackResult.success) {
+            throw new InternalServerError(
+                `Failed to perform operation on appointment and failed to rollback (${rollbackStatus}). Manual intervention required for appointment id ${id}.`
+            );
         }
+    };
 
-        await this.updateAppointmentStatus(id, perform, rollbackStatus, data);
-        const queued = await this.sendChangeStatusNotification(id, perform.action);
-        
-        if (!queued.success) {
-            const rollbackResult = await this.appointmentsRepository.rollbackStatusChange(id, rollbackStatus);
+    // 1. Actualizar estado en DB
+    await this.updateAppointmentStatus(id, perform, rollbackStatus, data);
 
-            if (!rollbackResult.success) {
-                throw new InternalServerError(`Failed to perform operation on appointment and failed to rollback to original status (${rollbackStatus}). Manual intervention required for appointment id ${id}.`);
-            }
-        }
+    // 2. Despachar TODAS las notificaciones en una sola llamada (Email + Webhook si aplica)
+    const queued = await this.sendChangeStatusNotification(id, perform.action, webhookPayload);
 
-        return { 
-            message: `Appointment ${perform.output} successfully`, 
-            notificationId: queued.requestId
-        };
+    if (!queued.success) {
+        await rollback();
+        throw new InternalServerError('Failed to queue appointment change notifications');
     }
+
+    return {
+        message: `Appointment ${perform.output} successfully`,
+        notificationId: queued.requestId // Mantenemos el ID de rastreo
+    };
+}
     
-    async sendChangeStatusNotification(id, action) {
-        const requestId = crypto.randomUUID();
-        const originalNotificationData = await this.getNotificationOriginalData(id, requestId);
+async sendChangeStatusNotification(id, action, webhookPayload = null) {
+    const requestId = crypto.randomUUID();
+    const originalNotificationData = await this.getNotificationOriginalData(id, requestId);
 
-        const emailNotification = {
-            notify_by: 'email',
-            notification_type: action,
+    // 1. Definir los payloads de notificación que necesitamos enviar
+    const notificationsToQueue = [];
+
+    // Siempre enviamos el Email por defecto
+    notificationsToQueue.push({
+        notify_by: 'email',
+        notification_type: action,
+    });
+
+    // Si viene un payload de webhook (ej: Quirófano), lo sumamos a la lista
+    if (webhookPayload) {
+        notificationsToQueue.push({
+            notify_by: 'webhook',
+            notification_type: webhookPayload.notification_type ?? 'webhookOperationsRoom',
+        });
+    }
+
+    // 2. Encolar todas las notificaciones en paralelo
+    try {
+    const queuePromises = notificationsToQueue.map(notification =>
+        // NO le pases el requestId como cuarto parámetro.
+        // Dejá que use el `crypto.randomUUID()` que tiene por defecto para la DB.
+        this.queueNotificationForAppointment(
+            id,
+            originalNotificationData,
+            notification
+            // Borramos 'requestId' de acá para evitar el choque en la PK de la DB
+        )
+    );
+
+        const results = await Promise.all(queuePromises);
+
+        // Si alguna de las colas falló, devolvemos success: false para que el orquestador haga rollback
+        const anyFailed = results.some(res => !res.success);
+        if (anyFailed) {
+            return { success: false, requestId };
         }
 
-        const queued = await this.queueNotificationForAppointment(id, originalNotificationData, emailNotification, requestId);
-        return queued;
+        return { success: true, requestId };
+
+    } catch (error) {
+        // Atajamos cualquier error de infraestructura inesperado
+        return { success: false, requestId };
     }
+}
 
     async getNotificationOriginalData(appointmentId, requestId) {
         const getNotificationOriginalUuid = await this.appointmentsRepository.getNotificationUuid(appointmentId);
@@ -390,14 +446,14 @@ class AppointmentsService {
         return notificationData.data;
     }
 
-    async queueNotificationForAppointment(appointmentId, notificationPayload, emailNotification, notificationUuid = crypto.randomUUID()) {
-        const savedNotification = await this.appointmentsRepository.saveNotification(appointmentId, notificationUuid, emailNotification.notification_type);
+    async queueNotificationForAppointment(appointmentId, notificationPayload, Notification, notificationUuid = crypto.randomUUID()) {
+        const savedNotification = await this.appointmentsRepository.saveNotification(appointmentId, notificationUuid, Notification.notification_type);
         if (!savedNotification.success){
             console.error('Failed to save notification for appointment id ' + appointmentId + ': ' + savedNotification.errorMessage);
             return { success: false, errorMessage: savedNotification.errorMessage };
         }
         
-        const queued = await this.notificationsClient.sendAppointmentNotification(notificationPayload, appointmentId, emailNotification, notificationUuid);
+        const queued = await this.notificationsClient.sendAppointmentNotification(notificationPayload, appointmentId, Notification, notificationUuid);
         if (!queued.success){
             console.error('Failed to queue notification for appointment id ' + appointmentId);
             return { success: false, errorMessage: queued.errorMessage };

@@ -9,7 +9,8 @@ const {
     generateFinishAppointmentNotification,
     generateExpiredAppointmentNotification,
     generateReminderAppointmentNotification,
-    generateAbsentAppointmentNotification
+    generateAbsentAppointmentNotification,
+    generateWebhookNotification
 } = require('@apps2/integrations/notifications/appointments-notification.mapper');
 
 class NotificationsAdapter {
@@ -50,6 +51,10 @@ class NotificationsAdapter {
       absentAppointment: {
         template: 'appointment_absent',
         generator: generateAbsentAppointmentNotification,
+      },
+      webhookOperationsRoom: {
+        template: 'webhook_operations_room',
+        generator: generateWebhookNotification,
       }
     };
   }
@@ -70,6 +75,12 @@ class NotificationsAdapter {
     const notification = this.getTemplate(notificationType);
     return notification.generator(data, appointmentId, notification.template);
   }
+
+  generateWebhookNotification(data, appointmentId, notificationType) {
+    const notification = this.getTemplate(notificationType);
+    return notification.generator(data, appointmentId, notification.template);
+  }
+
 }
 
 module.exports = { NotificationsAdapter };
