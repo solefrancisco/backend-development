@@ -20,12 +20,12 @@ class MySqlMedicalCentersRepository {
 
     if (queryFilters.lat !== undefined) {
       conditions.push('lat BETWEEN ? AND ?');
-      values.push(queryFilters.lat - 0.1, queryFilters.lat + 0.1);
+      values.push(queryFilters.lat - 0.2, queryFilters.lat + 0.2);
     }
 
     if (queryFilters.lng !== undefined) {
       conditions.push('lng BETWEEN ? AND ?');
-      values.push(queryFilters.lng - 0.1, queryFilters.lng + 0.1);
+      values.push(queryFilters.lng - 0.2, queryFilters.lng + 0.2);
     }
 
     if (conditions.length > 0) {
@@ -75,6 +75,18 @@ class MySqlMedicalCentersRepository {
       const { query, conditions, values, page } = await this.filter(queryFilters, baseQuery);
       const hasCoords = queryFilters.lat !== undefined && queryFilters.lng !== undefined;
       const sortBy = queryFilters.sort_by ?? (hasCoords ? 'distance' : 'name');
+
+      function haversineKm(lat1, lon1, lat2, lon2) {
+        const toRad = (v) => (Number(v) * Math.PI) / 180;
+        const R = 6371;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
 
       // Special sort: first availability
       if (sortBy === 'first_availability' && queryFilters.speciality_id) {
@@ -152,19 +164,10 @@ class MySqlMedicalCentersRepository {
           return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
         }
 
-        function haversineKm(lat1, lon1, lat2, lon2) {
-          const toRad = (v) => (v * Math.PI) / 180;
-          const R = 6371;
-          const dLat = toRad(lat2 - lat1);
-          const dLon = toRad(lon2 - lon1);
-          const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          return R * c;
-        }
-
         const centersWithAvailability = centers.map((c) => {
           const earliest = computeEarliest(apptsByCenter[c.id]);
-          return Object.assign({}, c, { earliest_available: earliest ? formatDate(earliest) : null });
+          const distance_km = hasCoords ? Number(haversineKm(queryFilters.lat, queryFilters.lng, c.lat, c.lng).toFixed(3)) : null;
+          return Object.assign({}, c, { earliest_available: earliest ? formatDate(earliest) : null, distance_km });
         });
 
         // sort by earliest availability (null last), then by distance if coords provided
@@ -211,7 +214,12 @@ class MySqlMedicalCentersRepository {
 
       const [rows] = await this.pool.query(finalQuery, values);
 
-      return { success: true, data: rows };
+      const rowsWithDistance = rows.map((r) => {
+        const distance_km = hasCoords ? Number(haversineKm(queryFilters.lat, queryFilters.lng, r.lat, r.lng).toFixed(3)) : null;
+        return Object.assign({}, r, { distance_km });
+      });
+
+      return { success: true, data: rowsWithDistance };
 
     } catch (error) {
       return {
