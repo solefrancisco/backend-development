@@ -157,30 +157,42 @@ class AppointmentsService {
             throw new BadRequestError('Cannot check-in more than 1 hour before the scheduled time');
         */
        
-        return await this.updateAppointmentStatusAndNotify(id, perform, null, actualStatus);
+        let webhookPayload = await this.checkIfWebhookRequired(id, appointmentInformation.speciality.id, "check-in");
+        return await this.updateAppointmentStatusAndNotify(id, perform, null, actualStatus, webhookPayload);
     }
+
     async checkIfWebhookRequired(appointmentId, appointmentSpecialityId, reason){
         let webhookPayload = [];
 
-        const speciality = await this.specialitiesService.getSpecialityById(appointmentSpecialityId);
-        const isSurgery = speciality.type === "SURGERY";
-        const isHighComplexity = speciality.is_high_complexity;
+        if (["cancelado", "reprogramado", "expirado", "ausente"].includes(reason)) {
+            const speciality = await this.specialitiesService.getSpecialityById(appointmentSpecialityId);
+            const isSurgery = speciality.type === "SURGERY";
+            const isHighComplexity = speciality.is_high_complexity;
+            const finalReason = reason === "ausente" ? "no se llevo a cabo porque el paciente no asistió" : reason;
 
-        if (isSurgery) {
+            if (isSurgery) {
+                webhookPayload.push({
+                    notify_by: 'webhook',
+                    notification_type: 'webhookOperationsRoom',
+                    appointmentId: appointmentId,
+                    reason: 'Turno quirúrgico' + finalReason,
+                });
+            }
+            
+            if (isHighComplexity) {
+                webhookPayload.push({
+                    notify_by: 'webhook',
+                    notification_type: 'webhookHighComplexity',
+                    appointmentId: appointmentId,
+                    reason: 'Turno de alta complejidad ' + finalReason,
+                });
+            }
+        } else if (reason === "check-in") {
             webhookPayload.push({
                 notify_by: 'webhook',
-                notification_type: 'webhookOperationsRoom',
+                notification_type: 'webhookCheckIn',
                 appointmentId: appointmentId,
-                reason: 'Turno quirúrgico' + reason,
-            });
-        }
-        
-        if (isHighComplexity) {
-            webhookPayload.push({
-                notify_by: 'webhook',
-                notification_type: 'webhookHighComplexity',
-                appointmentId: appointmentId,
-                reason: 'Turno de alta complejidad ' + reason,
+                reason: 'El paciente hizo checkin',
             });
         }
 
@@ -284,7 +296,8 @@ class AppointmentsService {
             };
 
             try{
-                await this.updateAppointmentStatusAndNotify(id, perform);
+                let webhookPayload = await this.checkIfWebhookRequired(id, appointment.speciality.id, "expirado");
+                await this.updateAppointmentStatusAndNotify(id, perform, null, null, webhookPayload);
             } catch (error) {
                 continue; // continue with the next appointment, we don't want one failure to stop the whole expiration process
             }
@@ -338,7 +351,8 @@ class AppointmentsService {
             };
 
             try{
-                await this.updateAppointmentStatusAndNotify(id, perform);
+                let webhookPayload = await this.checkIfWebhookRequired(id, appointment.speciality.id, "ausente");
+                await this.updateAppointmentStatusAndNotify(id, perform, null, null, webhookPayload);
             } catch (error) {
                 continue; // continue with the next appointment, we don't want one failure to stop the whole expiration process
             }

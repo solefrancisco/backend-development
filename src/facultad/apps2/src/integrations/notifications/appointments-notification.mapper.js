@@ -130,6 +130,26 @@ function generateHighComplexityWebhookNotification(data, appointmentId, notifica
     return notification;
 }
 
+function generateCheckInWebhookNotification(data, appointmentId, notificationTemplate, reason, requestId) {
+    const url = process.env.CHECK_IN_WEBHOOK_URL || 'https://api.check-in-externo.com/v1/webhook';
+    const notificationOriginalData = data.data;
+    const notification = getDefaultWebhookNotificationTemplate(data, appointmentId, notificationTemplate, url, reason, requestId);
+
+    notification.request.body.appointment = {
+        id: appointmentId,
+        starts_at: notificationOriginalData.appointment.starts_at,
+        checked_in_at: getFormattedTimestamp(),
+    }
+
+    
+    notification.request.body.patient = {
+        id: notificationOriginalData.patient.id,
+    };
+
+    console.log(`${requestId} - Check-in webhook notification payload:`, notification);
+    return notification;
+}
+
 module.exports = {
     generateCreateAppointmentNotification,
     generateRescheduleAppointmentNotification,
@@ -141,5 +161,6 @@ module.exports = {
     generateReminderAppointmentNotification,
     generateAbsentAppointmentNotification,
     generateOperationsRoomWebhookNotification,
-    generateHighComplexityWebhookNotification
+    generateHighComplexityWebhookNotification,
+    generateCheckInWebhookNotification
 };
