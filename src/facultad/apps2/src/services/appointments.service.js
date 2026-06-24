@@ -159,7 +159,33 @@ class AppointmentsService {
        
         return await this.updateAppointmentStatusAndNotify(id, perform, null, actualStatus);
     }
+    async checkIfWebhookRequired(appointmentId, appointmentSpecialityId, reason){
+        let webhookPayload = [];
 
+        const speciality = await this.specialitiesService.getSpecialityById(appointmentSpecialityId);
+        const isSurgery = speciality.type === "SURGERY";
+        const isHighComplexity = speciality.is_high_complexity;
+
+        if (isSurgery) {
+            webhookPayload.push({
+                notify_by: 'webhook',
+                notification_type: 'webhookOperationsRoom',
+                appointmentId: appointmentId,
+                reason: 'Turno quirúrgico' + reason,
+            });
+        }
+        
+        if (isHighComplexity) {
+            webhookPayload.push({
+                notify_by: 'webhook',
+                notification_type: 'webhookHighComplexity',
+                appointmentId: appointmentId,
+                reason: 'Turno de alta complejidad ' + reason,
+            });
+        }
+
+        return webhookPayload;
+    }
     async cancelAppointment(id) {
         const appointment = await this.getAppointmentById(id);
         const actualStatus = appointment.status;
@@ -170,30 +196,7 @@ class AppointmentsService {
             repositoryFunction: (id) => this.appointmentsRepository.cancel(id),
         };
 
-        let webhookPayload = [];
-        const appointmentSpecialityId = appointment.speciality.id;
-        const speciality = await this.specialitiesService.getSpecialityById(appointmentSpecialityId);
-        const isSurgery = speciality.type === "SURGERY";
-        const isHighComplexity = speciality.is_high_complexity;
-
-        if (isSurgery) {
-            webhookPayload.push({
-                notify_by: 'webhook',
-                notification_type: 'webhookOperationsRoom',
-                appointmentId: id,
-                reason: 'Turno quirúrgico cancelado',
-            });
-        }
-        
-        if (isHighComplexity) {
-            webhookPayload.push({
-                notify_by: 'webhook',
-                notification_type: 'webhookHighComplexity',
-                appointmentId: id,
-                reason: 'Turno de alta complejidad cancelado',
-            });
-        }
-        
+        let webhookPayload = await this.checkIfWebhookRequired(id, appointment.speciality.id, "cancelado");
         return await this.updateAppointmentStatusAndNotify(id, perform, null, actualStatus, webhookPayload);
     }
 
@@ -234,7 +237,8 @@ class AppointmentsService {
         if (checkAvailabilityResult.data)
             throw new ConflictError('The request conflicts with an existing appointment (ID: ' + checkAvailabilityResult.data.id + ')');
 
-        return await this.updateAppointmentStatusAndNotify(id, perform, data, actualStatus);
+        let webhookPayload = await this.checkIfWebhookRequired(id, appointmentInformation.speciality.id, "reprogramado");
+        return await this.updateAppointmentStatusAndNotify(id, perform, data, actualStatus, webhookPayload);
     }
 
     async startAppointment(id) {
@@ -439,7 +443,6 @@ class AppointmentsService {
             return { success: false, errorMessage: savedNotification.errorMessage };
         }
         
-        console.log(`Notification: ${JSON.stringify(Notification)}`);
         const queued = await this.notificationsClient.sendAppointmentNotification(notificationPayload, appointmentId, Notification, notificationUuid);
         if (!queued.success){
             console.error('Failed to queue notification for appointment id ' + appointmentId);

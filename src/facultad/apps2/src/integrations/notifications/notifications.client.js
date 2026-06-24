@@ -15,7 +15,7 @@ class NotificationsClient {
         } else if (notificationStrategy.notify_by === 'webhook') {
             payload = this.notificationsAdapter.generateWebhookNotification(payload, appointmentId, notificationStrategy.notification_type, notificationStrategy.reason, requestId);
         }
-        console.log(`${requestId} - Sending ${notificationStrategy.notify_by} notification for appointment id ${appointmentId} due to ${notificationStrategy.notification_type}`);
+        console.log(`${requestId} - Sending ${notificationStrategy.notify_by} notification for appointment id ${appointmentId} due to ${notificationStrategy.notification_type} event`);
 
         const startedAt = performance.now();
         const response = await fetch(toUrl, {
