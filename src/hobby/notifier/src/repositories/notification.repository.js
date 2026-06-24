@@ -54,10 +54,10 @@ class MySqlNotificationRepository {
     try {
       const [result] = await this.pool.query(
         `
-          INSERT INTO sent (sent_by, uuid, notified_by, data, event)
-          VALUES(?, ?, ?, ?, ?)
+          INSERT INTO sent (sent_by, uuid, notified_by, data)
+          VALUES(?, ?, ?, ?)
         `,
-        [ data.apiKeyOwner,  data.uuid, data.notified_by, data.data, data.event ]
+        [ data.apiKeyOwner,  data.uuid, data.notified_by, data.data ]
       );
       return { success: true };
     } catch (error) {

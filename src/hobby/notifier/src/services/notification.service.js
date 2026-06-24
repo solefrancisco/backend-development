@@ -38,7 +38,6 @@ class NotificationService {
             uuid: requestId,
             notified_by: data.notify_by,
             data: aesEncrypt(JSON.stringify(data)),
-            event: data.notification_type,
         };
 
         console.log(`${requestId} - [NOTIFIER] Saving notification to DB`);
