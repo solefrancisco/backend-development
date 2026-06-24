@@ -13,7 +13,7 @@ class NotificationsClient {
         if (notificationStrategy.notify_by === 'email') {
             payload = this.notificationsAdapter.generateEmailNotification(payload, appointmentId, notificationStrategy.notification_type);
         } else if (notificationStrategy.notify_by === 'webhook') {
-            payload = this.notificationsAdapter.generateWebhookNotification(payload, appointmentId, notificationStrategy.notification_type, notificationStrategy.reason, requestId);
+            payload = this.notificationsAdapter.generateWebhookNotification(payload, appointmentId, notificationStrategy, requestId);
         }
         console.log(`${requestId} - Sending ${notificationStrategy.notify_by} notification for appointment id ${appointmentId} due to ${notificationStrategy.notification_type} event`);
         const startedAt = performance.now();

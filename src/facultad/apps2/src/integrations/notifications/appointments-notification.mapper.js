@@ -105,8 +105,8 @@ function generateAbsentAppointmentNotification(data, appointmentId, notification
     return notification;
 }
 
-function generateOperationsRoomWebhookNotification(data, appointmentId, notificationTemplate, reason, requestId) {
-    const url = process.env.OPERATING_ROOM_WEBHOOK_URL || 'https://api.quirofano-externo.com/v1/webhook';
+function generateOperationsRoomWebhookNotification(data, appointmentId, notificationTemplate, reason, metadata, requestId) {
+    const url = process.env.OPERATING_ROOM_WEBHOOK_URL || 'https://webhook.site/a9b2fece-53f8-4fb0-bf1e-b350a862f99a';
     const notificationOriginalData = data.data;
     const notification = getDefaultWebhookNotificationTemplate(notificationOriginalData, appointmentId, notificationTemplate, url, reason, requestId);
     
@@ -117,21 +117,22 @@ function generateOperationsRoomWebhookNotification(data, appointmentId, notifica
         medical_center_name: notificationOriginalData.appointment.medical_center_name,
     }
 
-    notification.request.body.patient = {
-        fullname: notificationOriginalData.patient.fullname,
-    };
     return notification;
 }
 
-function generateHighComplexityWebhookNotification(data, appointmentId, notificationTemplate, reason, requestId) {
-    const url = process.env.HIGH_COMPLEXITY_WEBHOOK_URL || 'https://api.high-complexity-externo.com/v1/webhook';
+function generateHighComplexityWebhookNotification(data, appointmentId, notificationTemplate, reason, metadata, requestId) {
+    const url = process.env.HIGH_COMPLEXITY_WEBHOOK_URL || 'https://webhook.site/a9b2fece-53f8-4fb0-bf1e-b350a862f99a';
     const notificationOriginalData = data.data;
     const notification = getDefaultWebhookNotificationTemplate(data, appointmentId, notificationTemplate, url, reason, requestId);
+
+    notification.request.body.appointment = {
+        id: appointmentId,
+    }
     return notification;
 }
 
-function generateCheckInWebhookNotification(data, appointmentId, notificationTemplate, reason, requestId) {
-    const url = process.env.CHECK_IN_WEBHOOK_URL || 'https://api.check-in-externo.com/v1/webhook';
+function generateCheckInWebhookNotification(data, appointmentId, notificationTemplate, reason, metadata, requestId) {
+    const url = process.env.CHECK_IN_WEBHOOK_URL || 'https://webhook.site/a9b2fece-53f8-4fb0-bf1e-b350a862f99a';
     const notificationOriginalData = data.data;
     const notification = getDefaultWebhookNotificationTemplate(data, appointmentId, notificationTemplate, url, reason, requestId);
 
@@ -141,11 +142,13 @@ function generateCheckInWebhookNotification(data, appointmentId, notificationTem
         checked_in_at: getFormattedTimestamp(),
     }
 
-    
     notification.request.body.patient = {
-        id: notificationOriginalData.patient.id,
+        id: metadata.patient_id,
     };
 
+    notification.request.body.medic = {
+        id: metadata.medic_id,
+    };
     return notification;
 }
 

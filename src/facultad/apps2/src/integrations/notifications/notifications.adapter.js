@@ -83,9 +83,13 @@ class NotificationsAdapter {
     return notification.generator(data, appointmentId, notification.template);
   }
 
-  generateWebhookNotification(data, appointmentId, notificationType, reason, requestId) {
+  generateWebhookNotification(data, appointmentId, webhookNotification, requestId) {
+    const notificationType = webhookNotification.notification_type;
+    const reason = webhookNotification.reason;
+    const metadata = webhookNotification.metadata;
+
     const notification = this.getTemplate(notificationType);
-    return notification.generator(data, appointmentId, notification.template, reason, requestId);
+    return notification.generator(data, appointmentId, notification.template, reason, metadata, requestId);
   }
 
 }

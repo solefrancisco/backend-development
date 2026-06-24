@@ -157,11 +157,11 @@ class AppointmentsService {
             throw new BadRequestError('Cannot check-in more than 1 hour before the scheduled time');
         */
        
-        let webhookPayload = await this.checkIfWebhookRequired(id, appointmentInformation.speciality.id, "check-in");
+        let webhookPayload = await this.checkIfWebhookRequired(id, appointmentInformation.speciality.id, "check-in", {patient_id: appointmentInformation.patient.id, medic_id: appointmentInformation.medic.id});
         return await this.updateAppointmentStatusAndNotify(id, perform, null, actualStatus, webhookPayload);
     }
 
-    async checkIfWebhookRequired(appointmentId, appointmentSpecialityId, reason){
+    async checkIfWebhookRequired(appointmentId, appointmentSpecialityId, reason, metadata = {}){
         let webhookPayload = [];
 
         if (["cancelado", "reprogramado", "expirado", "ausente"].includes(reason)) {
@@ -175,7 +175,8 @@ class AppointmentsService {
                     notify_by: 'webhook',
                     notification_type: 'webhookOperationsRoom',
                     appointmentId: appointmentId,
-                    reason: 'Turno quirúrgico' + finalReason,
+                    metadata: metadata,
+                    reason: 'Turno quirúrgico ' + finalReason,
                 });
             }
             
@@ -184,6 +185,7 @@ class AppointmentsService {
                     notify_by: 'webhook',
                     notification_type: 'webhookHighComplexity',
                     appointmentId: appointmentId,
+                    metadata: metadata,
                     reason: 'Turno de alta complejidad ' + finalReason,
                 });
             }
@@ -192,6 +194,7 @@ class AppointmentsService {
                 notify_by: 'webhook',
                 notification_type: 'webhookCheckIn',
                 appointmentId: appointmentId,
+                metadata: metadata,
                 reason: 'El paciente hizo checkin',
             });
         }
