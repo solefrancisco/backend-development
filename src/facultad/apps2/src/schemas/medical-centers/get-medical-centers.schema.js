@@ -24,8 +24,7 @@ const getMedicalCentersSchema = z.object({
     })
     .finite('lat must be a valid number')
     .min(-90, 'lat must be greater than or equal to -90')
-    .max(90, 'lat must be less than or equal to 90')
-    .optional(),
+    .max(90, 'lat must be less than or equal to 90'),
 
   lng: z
     .coerce.number({
@@ -33,8 +32,7 @@ const getMedicalCentersSchema = z.object({
     })
     .finite('lng must be a valid number')
     .min(-180, 'lng must be greater than or equal to -180')
-    .max(180, 'lng must be less than or equal to 180')
-    .optional(),
+    .max(180, 'lng must be less than or equal to 180'),
 
   sort_by: z
     .enum(['name', 'distance', 'first_availability'])
@@ -46,16 +44,6 @@ const getMedicalCentersSchema = z.object({
     })
     .int('speciality_id must be an integer')
     .positive('speciality_id must be a positive integer')
-    .optional(),
-
-  since: z
-    .string({ invalid_type_error: 'since must be a string' })
-    .regex(dateTimeRegex, 'since must be YYYY-MM-DD HH:mm:ss')
-    .optional(),
-
-  until: z
-    .string({ invalid_type_error: 'until must be a string' })
-    .regex(dateTimeRegex, 'until must be YYYY-MM-DD HH:mm:ss')
     .optional(),
 
   page: z
@@ -90,39 +78,6 @@ const getMedicalCentersSchema = z.object({
         code: z.ZodIssueCode.custom,
         message: 'speciality_id is required when sort_by=first_availability'
       });
-    }
-
-    const hasSince = data.since !== undefined;
-    const hasUntil = data.until !== undefined;
-
-
-    if (hasSince !== hasUntil) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'since and until must be provided together'
-      });
-    } else if (hasSince && hasUntil) {
-      const since = new Date(data.since.replace(' ', 'T'));
-      const until = new Date(data.until.replace(' ', 'T'));
-
-      if (since >= until) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'since must be before until',
-          path: ['since'],
-        });
-      }
-
-      const maxDate = new Date(since);
-      maxDate.setMonth(maxDate.getMonth() + 1);
-
-      if (until > maxDate) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'the difference between since and until must not be greater than 1 month',
-          path: ['until'],
-        });
-      }
     }
   }
 });
