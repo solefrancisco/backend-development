@@ -152,36 +152,37 @@ class AppointmentsService {
         const appointmentStartsAt = new Date(appointmentInformation.starts_at.replace(' ', 'T') + '-03:00');
         const earliestAllowedCheckIn = new Date(appointmentStartsAt.getTime() - maxHoursBeforeAppointment * 60 * 60 * 1000);
 
+        /*
         if(new Date() < earliestAllowedCheckIn)
             throw new BadRequestError('Cannot check-in more than 1 hour before the scheduled time');
-
+        */
+       
         return await this.updateAppointmentStatusAndNotify(id, perform, null, actualStatus);
     }
 
-// 3. cancelAppointment: agregar notification_type al payload
-async cancelAppointment(id) {
-    const appointment = await this.getAppointmentById(id);
+    async cancelAppointment(id) {
+        const appointment = await this.getAppointmentById(id);
 
-    const perform = {
-        action: 'cancelAppointment',
-        output: 'cancelled',
-        repositoryFunction: (id) => this.appointmentsRepository.cancel(id),
-    };
-
-    let webhookPayload = null;
-
-    //solo si es la especialidad Quirófano, consultar con core cual es
-    if (appointment.speciality.id === 5) {
-        webhookPayload = {
-            notify_by: 'webhook',
-            notification_type: 'webhookOperationsRoom',
-            appointmentId: id,
-            reason: 'Paciente canceló el turno quirúrgico',
+        const perform = {
+            action: 'cancelAppointment',
+            output: 'cancelled',
+            repositoryFunction: (id) => this.appointmentsRepository.cancel(id),
         };
-    }
 
-    return await this.updateAppointmentStatusAndNotify(id, perform, null, null, webhookPayload);
-}
+        let webhookPayload = null;
+
+        //solo si es la especialidad Quirófano, consultar con core cual es
+        if (appointment.speciality.id === 5) {
+            webhookPayload = {
+                notify_by: 'webhook',
+                notification_type: 'webhookOperationsRoom',
+                appointmentId: id,
+                reason: 'Paciente canceló el turno quirúrgico',
+            };
+        }
+
+        return await this.updateAppointmentStatusAndNotify(id, perform, null, null, webhookPayload);
+    }
 
     async rescheduleAppointment(id, data) {
         const perform = {
@@ -349,84 +350,57 @@ async cancelAppointment(id) {
             throw new BadRequestError(`Appointment id ${id} was not found or status change was not allowed from ${originalStatus}`);
     }
 
-async updateAppointmentStatusAndNotify(id, perform, data = null, originalStatus = null, webhookPayload = null) {
-    const rollbackStatus = originalStatus ?? await this.getAppointmentStatus(id);
+    async updateAppointmentStatusAndNotify(id, perform, data = null, originalStatus = null, webhookPayload = null) {
+        const rollbackStatus = originalStatus ?? await this.getAppointmentStatus(id);
+        await this.updateAppointmentStatus(id, perform, rollbackStatus, data);
 
-    const rollback = async () => {
-        const rollbackResult = await this.appointmentsRepository.rollbackStatusChange(id, rollbackStatus);
-        if (!rollbackResult.success) {
-            throw new InternalServerError(
-                `Failed to perform operation on appointment and failed to rollback (${rollbackStatus}). Manual intervention required for appointment id ${id}.`
-            );
+        const queued = await this.sendChangeStatusNotification(id, perform.action, webhookPayload);
+        if (!queued.success) {
+            const rollbackResult = await this.appointmentsRepository.rollbackStatusChange(id, rollbackStatus);
+
+            if (!rollbackResult.success) {
+                throw new InternalServerError(
+                    `Failed to perform operation on appointment and failed to rollback (${rollbackStatus}). Manual intervention required for appointment id ${id}.`
+                );
+            }
+
+            throw new InternalServerError('Failed to queue appointment change notifications');
         }
-    };
 
-    // 1. Actualizar estado en DB
-    await this.updateAppointmentStatus(id, perform, rollbackStatus, data);
-
-    // 2. Despachar TODAS las notificaciones en una sola llamada (Email + Webhook si aplica)
-    const queued = await this.sendChangeStatusNotification(id, perform.action, webhookPayload);
-
-    if (!queued.success) {
-        await rollback();
-        throw new InternalServerError('Failed to queue appointment change notifications');
+        return {
+            message: `Appointment ${perform.output} successfully`,
+            notificationId: queued.requestId
+        };
     }
-
-    return {
-        message: `Appointment ${perform.output} successfully`,
-        notificationId: queued.requestId // Mantenemos el ID de rastreo
-    };
-}
     
-async sendChangeStatusNotification(id, action, webhookPayload = null) {
-    const requestId = crypto.randomUUID();
-    const originalNotificationData = await this.getNotificationOriginalData(id, requestId);
+    async sendChangeStatusNotification(id, action, webhookPayload = null) {
+        const requestId = crypto.randomUUID();
+        const originalNotificationData = await this.getNotificationOriginalData(id, requestId);
+        const notificationsToQueue = [
+            {
+                notify_by: 'email',
+                notification_type: action,
+            }
+        ];
 
-    // 1. Definir los payloads de notificación que necesitamos enviar
-    const notificationsToQueue = [];
+        // Si viene un payload de webhook (ej: Quirófano), lo sumamos a la lista
+        if (webhookPayload) {
+            notificationsToQueue.push({
+                notify_by: 'webhook',
+                notification_type: webhookPayload.notification_type,
+            });
+        }
 
-    // Siempre enviamos el Email por defecto
-    notificationsToQueue.push({
-        notify_by: 'email',
-        notification_type: action,
-    });
-
-    // Si viene un payload de webhook (ej: Quirófano), lo sumamos a la lista
-    if (webhookPayload) {
-        notificationsToQueue.push({
-            notify_by: 'webhook',
-            notification_type: webhookPayload.notification_type ?? 'webhookOperationsRoom',
-        });
-    }
-
-    // 2. Encolar todas las notificaciones en paralelo
-    try {
-    const queuePromises = notificationsToQueue.map(notification =>
-        // NO le pases el requestId como cuarto parámetro.
-        // Dejá que use el `crypto.randomUUID()` que tiene por defecto para la DB.
-        this.queueNotificationForAppointment(
-            id,
-            originalNotificationData,
-            notification
-            // Borramos 'requestId' de acá para evitar el choque en la PK de la DB
-        )
-    );
-
-        const results = await Promise.all(queuePromises);
-
-        // Si alguna de las colas falló, devolvemos success: false para que el orquestador haga rollback
-        const anyFailed = results.some(res => !res.success);
-        if (anyFailed) {
+        try {
+            const queuePromises = notificationsToQueue.map(notification => this.queueNotificationForAppointment(id, originalNotificationData, notification, requestId));
+            const results = await Promise.all(queuePromises);
+            return { success: true, requestId };
+        } catch (error) {
+            console.error(`Failed to queue notifications for appointment id ${id}:`, error);
+            // Atajamos cualquier error de infraestructura inesperado
             return { success: false, requestId };
         }
-
-        return { success: true, requestId };
-
-    } catch (error) {
-        // Atajamos cualquier error de infraestructura inesperado
-        return { success: false, requestId };
     }
-}
 
     async getNotificationOriginalData(appointmentId, requestId) {
         const getNotificationOriginalUuid = await this.appointmentsRepository.getNotificationUuid(appointmentId);
@@ -438,7 +412,6 @@ async sendChangeStatusNotification(id, action, webhookPayload = null) {
             throw new InternalServerError('No original contact data found for appointment id ' + appointmentId);
         
         const checkNotificationUuid = getNotificationOriginalUuid.data.notification_uuid;
-
         const notificationData = await this.notificationsClient.getNotification(checkNotificationUuid, appointmentId, requestId);
         if (!notificationData.success)
             throw new InternalServerError('Failed to retrieve original contact data from notification service for appointment id ' + appointmentId);

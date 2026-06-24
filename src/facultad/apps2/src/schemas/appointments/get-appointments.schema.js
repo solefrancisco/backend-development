@@ -93,6 +93,15 @@ const getAppointmentsSchema = z.object({
       path: ['patient_id'],
     });
   }
+
+  // regla 4: si se envía light_response=1, se debe enviar al menos especialidad y centro médico
+  if (data.light_response === 1 && (!data.speciality_id || !data.medical_center_id)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'if light_response=1, speciality_id and medical_center_id are required',
+      path: ['light_response'],
+    }); 
+  }
 });
 
 module.exports = { getAppointmentsSchema };
