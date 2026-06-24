@@ -162,6 +162,7 @@ class AppointmentsService {
 
     async cancelAppointment(id) {
         const appointment = await this.getAppointmentById(id);
+        const actualStatus = appointment.status;
 
         const perform = {
             action: 'cancelAppointment',
@@ -169,19 +170,31 @@ class AppointmentsService {
             repositoryFunction: (id) => this.appointmentsRepository.cancel(id),
         };
 
-        let webhookPayload = null;
+        let webhookPayload = [];
+        const appointmentSpecialityId = appointment.speciality.id;
+        const speciality = await this.specialitiesService.getSpecialityById(appointmentSpecialityId);
+        const isSurgery = speciality.type === "SURGERY";
+        const isHighComplexity = speciality.is_high_complexity;
 
-        //solo si es la especialidad Quirófano, consultar con core cual es
-        if (appointment.speciality.id === 5) {
-            webhookPayload = {
+        if (isSurgery) {
+            webhookPayload.push({
                 notify_by: 'webhook',
                 notification_type: 'webhookOperationsRoom',
                 appointmentId: id,
-                reason: 'Paciente canceló el turno quirúrgico',
-            };
+                reason: 'Turno quirúrgico cancelado',
+            });
         }
-
-        return await this.updateAppointmentStatusAndNotify(id, perform, null, null, webhookPayload);
+        
+        if (isHighComplexity) {
+            webhookPayload.push({
+                notify_by: 'webhook',
+                notification_type: 'webhookHighComplexity',
+                appointmentId: id,
+                reason: 'Turno de alta complejidad cancelado',
+            });
+        }
+        
+        return await this.updateAppointmentStatusAndNotify(id, perform, null, actualStatus, webhookPayload);
     }
 
     async rescheduleAppointment(id, data) {
@@ -352,7 +365,7 @@ class AppointmentsService {
         return { message: `Appointment ${perform.output} successfully` };
     }
 
-    async updateAppointmentStatusAndNotify(id, perform, data = null, originalStatus = null, webhookPayload = null) {
+    async updateAppointmentStatusAndNotify(id, perform, data = null, originalStatus = null, webhookPayload = []) {
         const rollbackStatus = originalStatus ?? await this.getAppointmentStatus(id);
         await this.updateAppointmentStatus(id, perform, rollbackStatus, data);
 
@@ -375,7 +388,7 @@ class AppointmentsService {
         };
     }
     
-    async sendChangeStatusNotification(id, action, webhookPayload = null) {
+    async sendChangeStatusNotification(id, action, webhookPayload = []) {
         const requestId = crypto.randomUUID();
         const originalNotificationData = await this.getNotificationOriginalData(id, requestId);
         const notificationsToQueue = [
@@ -385,12 +398,8 @@ class AppointmentsService {
             }
         ];
 
-        // Si viene un payload de webhook (ej: Quirófano), lo sumamos a la lista
-        if (webhookPayload) {
-            notificationsToQueue.push({
-                notify_by: 'webhook',
-                notification_type: webhookPayload.notification_type,
-            });
+        if (webhookPayload.length > 0) {
+            notificationsToQueue.push(...webhookPayload);
         }
 
         try {
@@ -415,8 +424,8 @@ class AppointmentsService {
         
         const checkNotificationUuid = getNotificationOriginalUuid.data.notification_uuid;
 
-        const notificationData = await this.notificationsClient.getNotification(checkNotificationUuid, requestId);
         console.log(`${requestId} - Retrieving notification ${checkNotificationUuid} related to appointment id ${appointmentId} from notifier`);
+        const notificationData = await this.notificationsClient.getNotification(checkNotificationUuid, requestId);
         if (!notificationData.success)
             throw new InternalServerError('Failed to retrieve original contact data from notification service for appointment id ' + appointmentId);
         
@@ -430,6 +439,7 @@ class AppointmentsService {
             return { success: false, errorMessage: savedNotification.errorMessage };
         }
         
+        console.log(`Notification: ${JSON.stringify(Notification)}`);
         const queued = await this.notificationsClient.sendAppointmentNotification(notificationPayload, appointmentId, Notification, notificationUuid);
         if (!queued.success){
             console.error('Failed to queue notification for appointment id ' + appointmentId);
