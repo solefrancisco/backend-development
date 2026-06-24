@@ -102,6 +102,18 @@ class AppointmentsController {
             next(error);
         }
     }
+
+    async getAppointmentNotificationsById(req, res, next) {
+        try {
+            const { id } = req.params;
+            const message = await this.appointmentsService.getAppointmentNotificationsById(id);
+
+            return res.status(200).json(message);
+        } catch (error){
+            next(error);
+        }
+    }
+
 }
 
 module.exports = { AppointmentsController };

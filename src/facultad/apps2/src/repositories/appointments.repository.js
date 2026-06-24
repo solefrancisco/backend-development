@@ -520,6 +520,22 @@ class MySqlAppointmentsRepository {
       return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
+
+  async getAppointmentNotificationsById(appointmentId) {
+    try{
+      const [rows] = await this.pool.query(
+        `
+          SELECT notification_uuid
+          FROM appointments_notifications
+          WHERE id = ?
+        `,
+        [appointmentId]
+      );
+      return { success: true, data: rows };
+    } catch (error) {
+      return { success: false, sqlState: error.sqlState, errorMessage: error.message };
+    }
+  }
 }
 
 module.exports = { MySqlAppointmentsRepository };

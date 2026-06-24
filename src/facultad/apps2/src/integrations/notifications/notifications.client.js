@@ -41,10 +41,9 @@ class NotificationsClient {
         return { success };
     }
 
-    async getNotification(notificationUuid, appointmentId, requestId) {
+    async getNotification(notificationUuid, requestId) {
         const toUrl = `${this.baseUrl}/api/v1/notifications/${notificationUuid}`;
 
-        console.log(`${requestId} - Retrieving notification ${notificationUuid} related to appointment id ${appointmentId} from notifier`);
         const startedAt = performance.now();
         const response = await fetch(toUrl, {
             method: 'GET',
@@ -66,6 +65,35 @@ class NotificationsClient {
 
         return { success, data };
     }
+
+    async getNotifications(query, requestId) {
+        const params = new URLSearchParams(query);
+
+        const toUrl =
+            `${this.baseUrl}/api/v1/notifications?${params}`;
+
+        console.log(
+            `${requestId} - Retrieving notifications from notifier`
+        );
+
+        const response = await fetch(toUrl, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': this.apiKey,
+                'x-request-id': requestId
+            }
+        });
+
+        const data = await response.json();
+
+        return {
+            success: response.status === 200,
+            status: response.status,
+            data
+        };
+    }
+    
 }
 
 module.exports = { NotificationsClient };

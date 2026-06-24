@@ -61,6 +61,10 @@ function AppointmentsRouter(appointmentsController) {
         (req, res, next) => appointmentsController.finishAppointmentById(req, res, next)
     );
 
+    router.get('/:id/notifications',
+        (req,res,next) => appointmentsController.getAppointmentNotificationsById(req,res,next)
+    );
+
     return router;
 }
 
