@@ -369,7 +369,7 @@ class AppointmentsService {
 
         return {
             message: `Appointment ${perform.output} successfully`,
-            notificationId: queued.requestId
+            notification_id: queued.requestId
         };
     }
     
