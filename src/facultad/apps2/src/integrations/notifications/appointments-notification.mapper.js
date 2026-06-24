@@ -146,7 +146,6 @@ function generateCheckInWebhookNotification(data, appointmentId, notificationTem
         id: notificationOriginalData.patient.id,
     };
 
-    console.log(`${requestId} - Check-in webhook notification payload:`, notification);
     return notification;
 }
 
