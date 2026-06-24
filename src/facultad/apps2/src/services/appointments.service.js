@@ -348,6 +348,8 @@ class AppointmentsService {
         
         if (!result.data.affectedRows)
             throw new BadRequestError(`Appointment id ${id} was not found or status change was not allowed from ${originalStatus}`);
+
+        return { message: `Appointment ${perform.output} successfully` };
     }
 
     async updateAppointmentStatusAndNotify(id, perform, data = null, originalStatus = null, webhookPayload = null) {
