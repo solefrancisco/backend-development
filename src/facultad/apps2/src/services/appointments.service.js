@@ -227,14 +227,6 @@ class AppointmentsService {
         const actualStartsAt = appointmentInformation.starts_at;
         const actualEndsAt = appointmentInformation.ends_at;
         
-        console.log("Comparando starts_at", {
-            actualStartsAt,
-            incomingStartsAt: data.starts_at,
-            actualType: typeof actualStartsAt,
-            incomingType: typeof data.starts_at,
-            areEqual: actualStartsAt === data.starts_at,
-        });
-        
         if (actualStartsAt === data.starts_at)
             throw new BadRequestError('The new start time must be different from the current one');
 
