@@ -133,7 +133,7 @@ class MySqlNotificationRepository {
         [uuid]
       );
 
-      return { success: true, data: rows[0] ?? null };
+      return { success: true, data: rows };
     } catch (error) {
       return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
