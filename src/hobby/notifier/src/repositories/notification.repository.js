@@ -128,7 +128,6 @@ class MySqlNotificationRepository {
             DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
           FROM sent
           WHERE uuid = ?
-          LIMIT 1
         `,
         [uuid]
       );
