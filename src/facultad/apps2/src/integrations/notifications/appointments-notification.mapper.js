@@ -64,7 +64,9 @@ function generateRescheduleAppointmentNotification(data, appointmentId, notifica
         ? data.find(item => item.notified_by === "email")
         : data;
     
-    notification.appointment.original_starts_at = notificationItem.appointment.starts_at;
+    const notificationOriginalData = notificationItem?.data || notificationItem;
+    
+    notification.appointment.original_starts_at = notificationOriginalData.appointment.starts_at;
 
     return notification
 }
