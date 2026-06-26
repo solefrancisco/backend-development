@@ -59,6 +59,7 @@ function generateCreateAppointmentNotification(data, appointmentId, notification
 }
 
 function generateRescheduleAppointmentNotification(data, appointmentId, notificationTemplate) {
+    console.log("generateRescheduleAppointmentNotification", data")
     const notification = getDefaultNotificationTemplate(data, appointmentId, notificationTemplate);
     const notificationItem = Array.isArray(data)
         ? data.find(item => item.notified_by === "email")
