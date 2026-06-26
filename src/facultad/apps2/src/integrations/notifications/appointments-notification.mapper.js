@@ -9,7 +9,12 @@ function getFormattedTimestamp(){
 
 function getDefaultNotificationTemplate(data, appointmentId, notificationTemplate) {
     console.log("getDefaultNotificationTemplate", data)
-    const notificationData = data[0].data || data[0]; // Handle both cases where data is nested under 'data' or is the root object
+
+    const notificationItem = Array.isArray(data)
+        ? data.find(item => item.notified_by === "email")
+        : data;
+
+    const notificationData = notificationItem?.data || notificationItem;
 
     return {
         notify_by: 'email',
@@ -32,7 +37,6 @@ function getDefaultNotificationTemplate(data, appointmentId, notificationTemplat
 }
 
 function getDefaultWebhookNotificationTemplate(data, appointmentId, notificationTemplate, url, reason, requestId) {
-    const notificationData = data.data.data || data.data || data;
     console.log(`${requestId} - Webhook notification target URL:`, url);
     return {
         notify_by: 'webhook',
