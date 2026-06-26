@@ -246,6 +246,11 @@ class AppointmentsService {
         }
 
         const checkAvailabilityResult = await this.appointmentsRepository.checkAvailability(checkData);
+        console.log("reschedule checkAvailabilityResult", {
+            checkData,
+            checkAvailabilityResult,
+            hasConflict: Boolean(checkAvailabilityResult.data),
+        });
         if (!checkAvailabilityResult.success)
             throw new InternalServerError('Failed to check availability for rescheduling: ' + checkAvailabilityResult.errorMessage);
 
