@@ -9,7 +9,7 @@ function getFormattedTimestamp(){
 
 function getDefaultNotificationTemplate(data, appointmentId, notificationTemplate) {
     console.log("getDefaultNotificationTemplate", data)
-    const notificationData = data.data.data || data.data || data; // Handle both cases where data is nested under 'data' or is the root object
+    const notificationData = data[0].data || data[0]; // Handle both cases where data is nested under 'data' or is the root object
 
     return {
         notify_by: 'email',
