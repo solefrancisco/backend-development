@@ -8,8 +8,6 @@ function getFormattedTimestamp(){
 }
 
 function getDefaultNotificationTemplate(data, appointmentId, notificationTemplate) {
-    console.log("getDefaultNotificationTemplate", data)
-
     const notificationItem = Array.isArray(data)
         ? data.find(item => item.notified_by === "email")
         : data;
@@ -59,7 +57,6 @@ function generateCreateAppointmentNotification(data, appointmentId, notification
 }
 
 function generateRescheduleAppointmentNotification(data, appointmentId, notificationTemplate, metadata) {
-    console.log("generateRescheduleAppointmentNotification - receive data", data)
     const notification = getDefaultNotificationTemplate(data, appointmentId, notificationTemplate);
     const notificationItem = Array.isArray(data)
         ? data.find(item => item.notified_by === "email")
@@ -67,11 +64,9 @@ function generateRescheduleAppointmentNotification(data, appointmentId, notifica
     
     const notificationOriginalData = notificationItem?.data || notificationItem;
     
-    console.log("generateRescheduleAppointmentNotification - notificationOriginalData", notificationOriginalData)
     notification.appointment.original_starts_at = metadata.previous_starts_at;
     notification.appointment.starts_at = metadata.new_starts_at;
 
-    console.log("generateRescheduleAppointmentNotification - returning notification", notification)
     return notification
 }
 
