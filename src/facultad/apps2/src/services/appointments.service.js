@@ -252,7 +252,14 @@ class AppointmentsService {
         if (checkAvailabilityResult.data)
             throw new ConflictError('The request conflicts with an existing appointment (ID: ' + checkAvailabilityResult.data.id + ')');
 
-        let webhookPayload = await this.checkIfWebhookRequired(id, appointmentInformation.speciality.id, "reprogramado");
+        const metadata = {
+            previous_starts_at: actualStartsAt,
+            previous_ends_at: actualEndsAt,
+            new_starts_at: data.starts_at,
+            new_ends_at: data.ends_at
+        }
+
+        let webhookPayload = await this.checkIfWebhookRequired(id, appointmentInformation.speciality.id, "reprogramado", metadata);
         return await this.updateAppointmentStatusAndNotify(id, perform, data, actualStatus, webhookPayload);
     }
 
