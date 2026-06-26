@@ -31,7 +31,7 @@ function getDefaultNotificationTemplate(data, appointmentId, notificationTemplat
 }
 
 function getDefaultWebhookNotificationTemplate(data, appointmentId, notificationTemplate, url, reason, requestId) {
-    const notificationData = data.data || data;
+    const notificationData = data.data.data || data.data || data;
     console.log(`${requestId} - Webhook notification target URL:`, url);
     return {
         notify_by: 'webhook',
