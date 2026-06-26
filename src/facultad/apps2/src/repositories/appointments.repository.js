@@ -373,29 +373,13 @@ class MySqlAppointmentsRepository {
       `;
 
       const { query, conditions, values, page } = await this.filter(queryFilters, baseQuery);
-      console.log("checkAvailability query", {
-        query,
-        conditions,
-        values,
-        page,
-        queryFilters,
-      });
       const [rows] = await this.pool.query(
         query,
         values
       );
       
-      console.log("checkAvailability rows", {
-        rows,
-        firstRow: rows[0],
-        hasConflict: Boolean(rows[0]),
-      });
       return { success: true, data: rows[0] ?? null };
     } catch (error) {
-      console.error("checkAvailability error", {
-        sqlState: error.sqlState,
-        message: error.message,
-      });
       return { success: false, sqlState: error.sqlState, errorMessage: error.message };
     }
   }
