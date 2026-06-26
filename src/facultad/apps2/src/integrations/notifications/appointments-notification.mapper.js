@@ -112,7 +112,14 @@ function generateAbsentAppointmentNotification(data, appointmentId, notification
 
 function generateOperationsRoomWebhookNotification(data, appointmentId, notificationTemplate, reason, metadata, requestId) {
     const url = process.env.OPERATING_ROOM_WEBHOOK_URL || 'https://webhook.site/a9b2fece-53f8-4fb0-bf1e-b350a862f99a';
-    const notificationOriginalData = data.data;
+    // const notificationOriginalData = data.data;
+    
+    const notificationItem = Array.isArray(data)
+        ? data.find(item => item.notified_by === "email")
+        : data;
+
+    const notificationOriginalData = notificationItem?.data || notificationItem;
+    
     const notification = getDefaultWebhookNotificationTemplate(notificationOriginalData, appointmentId, notificationTemplate, url, reason, requestId);
     
     notification.request.body.appointment = {
@@ -135,7 +142,13 @@ function generateOperationsRoomWebhookNotification(data, appointmentId, notifica
 
 function generateHighComplexityWebhookNotification(data, appointmentId, notificationTemplate, reason, metadata, requestId) {
     const url = process.env.HIGH_COMPLEXITY_WEBHOOK_URL || 'https://webhook.site/a9b2fece-53f8-4fb0-bf1e-b350a862f99a';
-    const notificationOriginalData = data.data;
+    // const notificationOriginalData = data.data;
+    
+    const notificationItem = Array.isArray(data)
+        ? data.find(item => item.notified_by === "email")
+        : data;
+
+    const notificationOriginalData = notificationItem?.data || notificationItem;
     const notification = getDefaultWebhookNotificationTemplate(data, appointmentId, notificationTemplate, url, reason, requestId);
 
     notification.request.body.appointment = {
@@ -154,7 +167,13 @@ function generateHighComplexityWebhookNotification(data, appointmentId, notifica
 
 function generateCheckInWebhookNotification(data, appointmentId, notificationTemplate, reason, metadata, requestId) {
     const url = process.env.CHECK_IN_WEBHOOK_URL || 'https://webhook.site/a9b2fece-53f8-4fb0-bf1e-b350a862f99a';
-    const notificationOriginalData = data.data;
+    // const notificationOriginalData = data.data;
+    
+    const notificationItem = Array.isArray(data)
+        ? data.find(item => item.notified_by === "email")
+        : data;
+
+    const notificationOriginalData = notificationItem?.data || notificationItem;
     const notification = getDefaultWebhookNotificationTemplate(data, appointmentId, notificationTemplate, url, reason, requestId);
 
     notification.request.body.appointment = {
