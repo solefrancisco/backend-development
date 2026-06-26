@@ -428,6 +428,7 @@ class AppointmentsService {
 
         if (webhookPayload.length > 0) {
             notificationsToQueue.push(...webhookPayload);
+            notificationsToQueue[0].metadata = webhookPayload[0].metadata
         }
 
         try {
