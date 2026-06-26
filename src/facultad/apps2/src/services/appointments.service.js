@@ -251,12 +251,16 @@ class AppointmentsService {
             checkAvailabilityResult,
             hasConflict: Boolean(checkAvailabilityResult.data),
         });
-        if (!checkAvailabilityResult.success)
+        if (!checkAvailabilityResult.success){
             throw new InternalServerError('Failed to check availability for rescheduling: ' + checkAvailabilityResult.errorMessage);
-
-        if (checkAvailabilityResult.data)
+        }
+        
+        if (checkAvailabilityResult.data){
             throw new ConflictError('The request conflicts with an existing appointment (ID: ' + checkAvailabilityResult.data.id + ')');
-
+        }
+        console.log("NO conflict, continuing reschedule flow", {
+            appointmentId: id,
+        });
         const metadata = {
             previous_starts_at: actualStartsAt,
             previous_ends_at: actualEndsAt,
