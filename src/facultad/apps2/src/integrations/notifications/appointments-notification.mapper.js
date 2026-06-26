@@ -59,7 +59,7 @@ function generateCreateAppointmentNotification(data, appointmentId, notification
 }
 
 function generateRescheduleAppointmentNotification(data, appointmentId, notificationTemplate) {
-    console.log("generateRescheduleAppointmentNotification", data)
+    console.log("generateRescheduleAppointmentNotification - receive data", data)
     const notification = getDefaultNotificationTemplate(data, appointmentId, notificationTemplate);
     const notificationItem = Array.isArray(data)
         ? data.find(item => item.notified_by === "email")
@@ -67,8 +67,10 @@ function generateRescheduleAppointmentNotification(data, appointmentId, notifica
     
     const notificationOriginalData = notificationItem?.data || notificationItem;
     
+    console.log("generateRescheduleAppointmentNotification - notificationOriginalData", notificationOriginalData)
     notification.appointment.original_starts_at = notificationOriginalData.appointment.starts_at;
 
+    console.log("generateRescheduleAppointmentNotification - returning notification", notification)
     return notification
 }
 
