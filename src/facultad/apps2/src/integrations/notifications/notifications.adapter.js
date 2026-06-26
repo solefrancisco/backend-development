@@ -78,9 +78,13 @@ class NotificationsAdapter {
     return notification;
   }
 
-  generateEmailNotification(data, appointmentId, notificationType) {
+  generateEmailNotification(data, appointmentId, emailNotification) {      
+    const notificationType = emailNotification.notification_type;
+    const reason = emailNotification.reason;
+    const metadata = emailNotification.metadata;
+
     const notification = this.getTemplate(notificationType);
-    return notification.generator(data, appointmentId, notification.template);
+    return notification.generator(data, appointmentId, notification.template, metadata);
   }
 
   generateWebhookNotification(data, appointmentId, webhookNotification, requestId) {
