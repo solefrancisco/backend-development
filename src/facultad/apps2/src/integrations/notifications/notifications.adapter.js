@@ -80,9 +80,8 @@ class NotificationsAdapter {
 
   generateEmailNotification(data, appointmentId, emailNotification) {      
     const notificationType = emailNotification.notification_type;
-    const reason = emailNotification.reason;
-    const metadata = emailNotification.metadata;
-
+    const metadata = emailNotification?.metadata ?? {};
+      
     const notification = this.getTemplate(notificationType);
     return notification.generator(data, appointmentId, notification.template, metadata);
   }
