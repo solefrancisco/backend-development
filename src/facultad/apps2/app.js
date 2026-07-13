@@ -31,7 +31,7 @@ function createApp(dependencies) {
 function bootstrapAppControllers(app, dependencies) {
     if (dependencies.authController) {
         app.use(
-            '/auth',
+            '/api/v1/auth',
             AuthRouter(dependencies.authController)
         );
     }
