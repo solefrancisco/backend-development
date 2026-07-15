@@ -134,19 +134,83 @@ test('getAppointments throws InternalServerError when repository fails', async (
   );
 });
 
-test('getAppointmentById returns appointment when repository finds it', async () => {
-  const appointment = { id: 55, status: 'CONFIRMED' };
+test('getAppointmentById returns appointment with nested related data', async () => {
+  const appointment = {
+    id: 55,
+    medic_id: 1,
+    patient_id: 2,
+    center_id: 3,
+    speciality_id: 4,
+    status: 'CONFIRMED',
+    starts_at: '2099-01-01 10:00:00',
+    ends_at: '2099-01-01 10:30:00',
+    confirmed_at: null,
+    absent_at: null,
+    expired_at: null,
+    checked_in_at: null,
+    cancelled_at: null,
+    completed_at: null,
+    started_at: null,
+    created_at: '2099-01-01 09:00:00'
+  };
   const repository = {
     findById: async (id) => {
       assert.equal(id, 55);
       return { success: true, data: appointment };
     }
   };
-  const service = new AppointmentsService(repository);
+  const medicalCentersService = {
+    getMedicalCentersById: async (id) => {
+      assert.equal(id, 3);
+      return { id: 3, name: 'Central' };
+    }
+  };
+  const specialitiesService = {
+    getSpecialityById: async (id) => {
+      assert.equal(id, 4);
+      return { id: 4, name: 'Cardiologia Local', is_high_complexity: 1 };
+    }
+  };
+  const coreClient = {
+    getUserById: async (id) => ({
+      success: true,
+      data: id === 1
+        ? { id: 1, first_name: 'Mateo001', last_name: 'SanchezMedico001', email: 'medic@example.com' }
+        : { id: 2, first_name: 'Mateo001', last_name: 'SanchezPaciente001', email: 'patient@example.com' }
+    }),
+    getSpecialityById: async (id) => {
+      assert.equal(id, 4);
+      return { success: true, data: { id: 4, name: 'Cardiologia', is_high_complexity: 0 } };
+    }
+  };
+  const service = new AppointmentsService(repository, null, null, specialitiesService, medicalCentersService, coreClient);
 
   const result = await service.getAppointmentById(55);
 
-  assert.deepEqual(result, appointment);
+  assert.equal(result.id, 55);
+  assert.deepEqual(result.patient, {
+    id: 2,
+    fullname: 'Mateo Sanchez',
+    email: 'patient@example.com'
+  });
+  assert.deepEqual(result.medic, {
+    id: 1,
+    fullname: 'Mateo Sanchez',
+    email: 'medic@example.com'
+  });
+  assert.deepEqual(result.speciality, {
+    id: 4,
+    name: 'Cardiologia',
+    is_high_complexity: 1
+  });
+  assert.deepEqual(result.medical_center, {
+    id: 3,
+    name: 'Central'
+  });
+  assert.equal(result.patient_id, undefined);
+  assert.equal(result.medic_id, undefined);
+  assert.equal(result.speciality_id, undefined);
+  assert.equal(result.center_id, undefined);
 });
 
 test('getAppointmentById throws NotFoundError when repository returns null', async () => {

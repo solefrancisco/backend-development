@@ -3,46 +3,31 @@ const assert = require('node:assert/strict');
 
 const { MedicsService } = require('@apps2/services/medics.service');
 
-test('getMedics returns cached medics as a list', () => {
-    const service = new MedicsService(null, []);
-    service.medicsCache = [
-        {
-            medic_id: 214,
-            fullname: 'Valentina Molina',
-            email: 'valentina@example.com',
-            speciality_id: 67,
-            speciality_name: 'Cirugia Ginecologica',
-        },
-    ];
+function createCoreUser(id, firstName = 'Mateo001', lastName = 'SanchezMedico001') {
+    return {
+        id,
+        first_name: firstName,
+        last_name: lastName,
+        email: `medic${id}@example.com`,
+        specialities: [
+            {
+                id: 1,
+                name: 'Cardiologia',
+            },
+        ],
+    };
+}
 
-    assert.deepEqual(service.getMedics(), service.medicsCache);
-});
-
-test('getMedics filters cached medics by speciality_id', () => {
-    const service = new MedicsService(null, []);
-    service.medicsCache = [
-        {
-            medic_id: 214,
-            fullname: 'Valentina Molina',
-            email: 'valentina@example.com',
-            speciality_id: 67,
-            speciality_name: 'Cirugia Ginecologica',
-        },
-        {
-            medic_id: 85,
-            fullname: 'Martin Perez',
-            email: 'martin@example.com',
-            speciality_id: 1,
-            speciality_name: 'Cardiologia',
-        },
-    ];
-
-    assert.deepEqual(service.getMedics({ speciality_id: 67 }), [service.medicsCache[0]]);
-});
-
-test('refreshMedicsCache fetches users from Core and maps them into cached medics', async () => {
+test('refreshMedicsCache reads ids from repository and hydrates them from Core', async () => {
     const requestedIds = [];
-    const coreClient = {
+    const service = new MedicsService({
+        async findAllIds() {
+            return {
+                success: true,
+                data: [{ medic_id: 85 }, { medic_id: 86 }],
+            };
+        },
+    }, {
         async getAccessToken() {
             return 'core-token';
         },
@@ -51,69 +36,93 @@ test('refreshMedicsCache fetches users from Core and maps them into cached medic
             return {
                 success: true,
                 status: 200,
-                data: {
-                    id,
-                    first_name: `Name${id}`,
-                    last_name: `Last${id}`,
-                    email: `medic${id}@example.com`,
-                    specialities: [
-                        {
-                            id: id + 10,
-                            name: `Speciality ${id}`,
-                        },
-                    ],
-                },
+                data: createCoreUser(id),
             };
         },
-    };
-    const service = new MedicsService(coreClient, [85, 86]);
+    });
 
-    const cache = await service.refreshMedicsCache();
+    const medics = await service.refreshMedicsCache();
 
     assert.deepEqual(requestedIds.sort((a, b) => a - b), [85, 86]);
-    assert.deepEqual(cache, [
+    assert.deepEqual(medics, [
         {
             medic_id: 85,
-            fullname: 'Name85 Last85',
+            fullname: 'Mateo Sanchez',
             email: 'medic85@example.com',
-            speciality_id: 95,
-            speciality_name: 'Speciality 85',
+            speciality_id: 1,
+            speciality_name: 'Cardiologia',
         },
         {
             medic_id: 86,
-            fullname: 'Name86 Last86',
+            fullname: 'Mateo Sanchez',
             email: 'medic86@example.com',
-            speciality_id: 96,
-            speciality_name: 'Speciality 86',
+            speciality_id: 1,
+            speciality_name: 'Cardiologia',
         },
     ]);
 });
 
-test('refreshMedicsCache skips invalid Core user payloads', async () => {
-    const coreClient = {
-        async getAccessToken() {
-            return 'core-token';
+test('getMedics returns hydrated cache and filters by speciality_id', async () => {
+    const service = new MedicsService({}, null);
+    service.medicsCache = [
+        {
+            medic_id: 85,
+            fullname: 'Mateo Sanchez',
+            email: 'medic85@example.com',
+            speciality_id: 1,
+            speciality_name: 'Cardiologia',
         },
-        async getUserById() {
+        {
+            medic_id: 214,
+            fullname: 'Valentina Molina',
+            email: 'medic214@example.com',
+            speciality_id: 67,
+            speciality_name: 'Cirugia Ginecologica',
+        },
+    ];
+
+    assert.deepEqual(await service.getMedics({ speciality_id: 67 }), [service.medicsCache[1]]);
+    assert.deepEqual(await service.getMedics(), service.medicsCache);
+});
+
+test('createMedic saves only id and hydrates only the new medic from Core', async () => {
+    const savedIds = [];
+    const requestedIds = [];
+    const service = new MedicsService({
+        async saveId(medicId) {
+            savedIds.push(medicId);
+            return { success: true, data: { medic_id: medicId } };
+        },
+    }, {
+        async getUserById(id) {
+            requestedIds.push(id);
             return {
                 success: true,
                 status: 200,
-                data: { raw: '502 Bad Gateway' },
+                data: createCoreUser(id, 'Valentina130', 'MolinaMedico130'),
             };
         },
-    };
-    const service = new MedicsService(coreClient, [85]);
+    });
+    service.medicsCache = [
+        {
+            medic_id: 85,
+            fullname: 'Mateo Sanchez',
+            email: 'medic85@example.com',
+            speciality_id: 1,
+            speciality_name: 'Cardiologia',
+        },
+    ];
 
-    const cache = await service.refreshMedicsCache();
+    const medic = await service.createMedic({ medic_id: 214 });
 
-    assert.deepEqual(cache, []);
-});
-
-test('formatCoreResponseForLog flattens raw Core responses', () => {
-    const service = new MedicsService(null, []);
-
-    assert.equal(
-        service.formatCoreResponseForLog({ raw: '502\nBad Gateway' }),
-        '502 Bad Gateway'
-    );
+    assert.deepEqual(savedIds, [214]);
+    assert.deepEqual(requestedIds, [214]);
+    assert.deepEqual(medic, {
+        medic_id: 214,
+        fullname: 'Valentina Molina',
+        email: 'medic214@example.com',
+        speciality_id: 1,
+        speciality_name: 'Cardiologia',
+    });
+    assert.deepEqual(service.medicsCache.map(item => item.medic_id), [85, 214]);
 });

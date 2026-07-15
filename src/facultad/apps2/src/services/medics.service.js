@@ -1,74 +1,95 @@
+const { InternalServerError } = require('@apps2/errors/internal-server.error');
+
 class MedicsService {
-    constructor(coreClient, medicUserIds) {
+    constructor(medicsRepository, coreClient) {
+        this.medicsRepository = medicsRepository;
         this.coreClient = coreClient;
-        this.medicUserIds = medicUserIds;
         this.medicsCache = [];
+        this.refreshPromise = null;
     }
 
-    getMedics(query = {}) {
-        const specialityId = query.speciality_id;
-        return specialityId
-            ? this.medicsCache.filter((medic) => medic.speciality_id === specialityId)
+    async getMedics(query = {}) {
+        if (this.refreshPromise) {
+            await this.refreshPromise;
+        }
+
+        return query.speciality_id
+            ? this.medicsCache.filter((medic) => medic.speciality_id === query.speciality_id)
             : this.medicsCache;
     }
 
-    async refreshMedicsCache() {
-        if (!this.coreClient) {
-            console.warn('[MEDICS] Core client is not available. Medics cache was not refreshed.');
-            return this.medicsCache;
+    async createMedic(data) {
+        if (this.refreshPromise) {
+            await this.refreshPromise;
         }
 
-        await this.coreClient.getAccessToken();
+        const result = await this.medicsRepository.saveId(data.medic_id);
+        if (!result.success) {
+            throw new InternalServerError('Failed to save cached medic id: ' + result.errorMessage);
+        }
 
-        const results = await Promise.allSettled(
-            this.medicUserIds.map((userId) => this.getMedicFromCore(userId))
+        const medic = await this.getMedicFromCore(data.medic_id);
+        this.upsertMedicInCache(medic);
+
+        return medic;
+    }
+
+    async refreshMedicsCache() {
+        this.refreshPromise = this.loadMedicsCache();
+
+        try {
+            return await this.refreshPromise;
+        } finally {
+            this.refreshPromise = null;
+        }
+    }
+
+    async loadMedicsCache() {
+        const result = await this.medicsRepository.findAllIds();
+        if (!result.success) {
+            throw new InternalServerError('Failed to retrieve cached medic ids: ' + result.errorMessage);
+        }
+
+        if (this.coreClient && typeof this.coreClient.getAccessToken === 'function') {
+            await this.coreClient.getAccessToken();
+        }
+
+        const responses = await Promise.allSettled(
+            result.data.map((medic) => this.getMedicFromCore(medic.medic_id))
         );
-
-        const medics = results
-            .filter((result) => result.status === 'fulfilled' && result.value)
-            .map((result) => result.value);
+        const medics = responses
+            .filter((response) => response.status === 'fulfilled' && response.value)
+            .map((response) => response.value);
 
         this.medicsCache = medics;
-        console.log(`[MEDICS] Cache refreshed with ${medics.length}/${this.medicUserIds.length} medics`);
+        console.log(`[MEDICS] Cache refreshed with ${medics.length}/${result.data.length} medics`);
 
-        results
-            .filter((result) => result.status === 'rejected')
-            .forEach((result) => console.warn('[MEDICS] Failed to load medic from Core', result.reason));
+        responses
+            .filter((response) => response.status === 'rejected')
+            .forEach((response) => console.warn('[MEDICS] Failed to hydrate cached medic from Core', response.reason));
 
         return this.medicsCache;
     }
 
-    async getMedicFromCore(userId) {
-        const response = await this.coreClient.getUserById(userId);
+    async getMedicFromCore(medicId) {
+        if (!this.coreClient) {
+            throw new InternalServerError('Core client is required to hydrate cached medics');
+        }
 
+        const response = await this.coreClient.getUserById(medicId);
         if (!response.success) {
-            console.warn(`[MEDICS] Core user request failed userId=${userId} status=${response.status} response="${this.formatCoreResponseForLog(response.data)}"`);
-            return null;
+            throw new InternalServerError(`Failed to retrieve medic ${medicId} from Core. Status: ${response.status}`);
         }
 
         if (!this.isValidCoreUser(response.data)) {
-            console.warn(`[MEDICS] Core user response is invalid userId=${userId} status=${response.status} response="${this.formatCoreResponseForLog(response.data)}"`);
-            return null;
+            throw new InternalServerError(`Core medic ${medicId} response is invalid`);
         }
 
         return this.mapCoreUserToMedic(response.data);
     }
 
     isValidCoreUser(user) {
-        return Boolean(user && typeof user === 'object' && user.email);
-    }
-
-    formatCoreResponseForLog(data, maxLength = 500) {
-        const value = data && typeof data === 'object' && Object.hasOwn(data, 'raw')
-            ? data.raw
-            : JSON.stringify(data || {});
-        const flatValue = String(value).replace(/\s+/g, ' ').trim();
-
-        if (flatValue.length <= maxLength) {
-            return flatValue;
-        }
-
-        return `${flatValue.slice(0, maxLength)}...`;
+        return Boolean(user && typeof user === 'object' && user.id && user.email);
     }
 
     mapCoreUserToMedic(user) {
@@ -76,11 +97,31 @@ class MedicsService {
 
         return {
             medic_id: user.id,
-            fullname: [user.first_name, user.last_name].filter(Boolean).join(' '),
+            fullname: this.normalizeFullname([user.first_name, user.last_name].filter(Boolean).join(' ')),
             email: user.email,
             speciality_id: speciality ? speciality.id : null,
             speciality_name: speciality ? speciality.name : null,
         };
+    }
+
+    normalizeFullname(fullname) {
+        return String(fullname)
+            .replace(/\d+/g, '')
+            .replace(/Medico/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    upsertMedicInCache(medic) {
+        const index = this.medicsCache.findIndex((cachedMedic) => cachedMedic.medic_id === medic.medic_id);
+
+        if (index >= 0) {
+            this.medicsCache[index] = medic;
+            return;
+        }
+
+        this.medicsCache.push(medic);
+        this.medicsCache.sort((a, b) => a.medic_id - b.medic_id);
     }
 }
 
