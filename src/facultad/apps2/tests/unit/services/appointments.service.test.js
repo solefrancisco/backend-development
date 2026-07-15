@@ -244,3 +244,37 @@ test('getAppointmentById throws InternalServerError when repository fails', asyn
     }
   );
 });
+
+test('publishCoreWebhookEvents skips check-in Core event when event type id is not configured', async () => {
+  let publishEventCalled = false;
+  const repository = {};
+  const coreClient = {
+    publishEvent: async () => {
+      publishEventCalled = true;
+      return { success: true };
+    }
+  };
+  const service = new AppointmentsService(repository, null, null, null, null, coreClient);
+  const originalWarn = console.warn;
+  const warnings = [];
+  console.warn = (message) => warnings.push(message);
+
+  try {
+    await service.publishCoreWebhookEvents(17, [
+      {
+        notify_by: 'webhook',
+        notification_type: 'webhookCheckIn',
+        appointmentId: 17,
+        metadata: { patient_id: 1, medic_id: 2 },
+        reason: 'El paciente hizo checkin',
+      }
+    ], 'request-123');
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.equal(publishEventCalled, false);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /module1CheckIn/);
+  assert.match(warnings[0], /APPS2_CORE_EVENT_MODULE1_CHECK_IN_ID/);
+});

@@ -17,9 +17,9 @@ class MedicsController {
     async createMedic(req, res, next) {
         try {
             const body = req.validatedRequest ? req.validatedRequest.body : req.body;
-            const medic = await this.medicsService.createMedic(body);
+            const medics = await this.medicsService.createMedic(body);
 
-            return res.status(201).json(medic);
+            return res.status(201).json(medics);
         } catch (error) {
             next(error);
         }

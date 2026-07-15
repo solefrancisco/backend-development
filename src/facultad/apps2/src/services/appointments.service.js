@@ -9,6 +9,13 @@ const { mockConfig } = require('@apps2/configs/mock.config');
 const { coreConfig } = require('@apps2/configs/core.config');
 const { buildAppointmentCoreEvents } = require('@apps2/integrations/core/appointments-core-events.adapter');
 
+const coreEventTypeEnvNames = {
+    module1CheckIn: 'APPS2_CORE_EVENT_MODULE1_CHECK_IN_ID',
+    module5HighComplexityCancelled: 'APPS2_CORE_EVENT_MODULE5_HIGH_COMPLEXITY_CANCELLED_ID',
+    module6SurgeryCancelled: 'APPS2_CORE_EVENT_MODULE6_SURGERY_CANCELLED_ID',
+    module6SurgeryRescheduled: 'APPS2_CORE_EVENT_MODULE6_SURGERY_RESCHEDULED_ID',
+};
+
 class AppointmentsService {
     constructor(appointmentsRepository, appointmentsUtils, notificationsClient, specialitiesService, medicalCentersService, coreClient = null) {
         this.appointmentsRepository = appointmentsRepository;
@@ -687,6 +694,13 @@ class AppointmentsService {
 
         for (const event of events) {
             const eventTypeId = coreConfig.eventTypeIds[event.eventName];
+
+            if (!eventTypeId) {
+                const envName = coreEventTypeEnvNames[event.eventName] || `Core event type for ${event.eventName}`;
+                console.warn(`${requestId} - Skipping Core event ${event.eventName} for appointment id ${appointmentId}: missing ${envName}`);
+                continue;
+            }
+
             const result = await this.coreClient.publishEvent(eventTypeId, event.payload, requestId);
 
             if (!result.success) {
