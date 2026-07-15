@@ -16,6 +16,10 @@ class AuthService {
         return await this.coreClient.forgotPassword(payload, requestId);
     }
 
+    async resetPassword(payload, requestId) {
+        return await this.coreClient.resetPassword(payload, requestId);
+    }
+
     async createSsoTicket(token, requestId) {
         return await this.coreClient.createSsoTicket(token, requestId);
     }

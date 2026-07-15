@@ -63,6 +63,10 @@ class CoreClient {
         return await this.postAuthPassthrough('/forgot-password', payload, requestId, 'forgotPasswordPassthrough');
     }
 
+    async resetPassword(payload, requestId) {
+        return await this.postAuthPassthrough('/reset-password', payload, requestId, 'resetPasswordPassthrough');
+    }
+
     async register(payload, requestId) {
         const result = await this.postAuthPassthrough('/register', payload, requestId, 'registerPassthrough');
 

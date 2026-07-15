@@ -147,6 +147,45 @@ test('forgotPassword forwards email and returns Core response unchanged', async 
     });
 });
 
+test('resetPassword forwards payload and returns Core response unchanged', async () => {
+    const client = new CoreClient({});
+    let capturedRequest;
+
+    client.fetchCore = async (method, url, options, context) => {
+        capturedRequest = { method, url, options, context };
+
+        return {
+            status: 200,
+            headers: {
+                get(name) {
+                    return name === 'content-type' ? 'application/json' : null;
+                },
+            },
+            async text() {
+                return '{"message":"password reset"}';
+            },
+        };
+    };
+
+    const payload = {
+        code: '123456',
+        email: 'patient@example.com',
+        new_password: 'new-secret',
+    };
+    const response = await client.resetPassword(payload, 'req-reset');
+
+    assert.equal(capturedRequest.method, 'POST');
+    assert.equal(capturedRequest.url, 'https://gw.healthcare.cantero.ar/api/auth/reset-password');
+    assert.equal(capturedRequest.options.body, JSON.stringify(payload));
+    assert.equal(capturedRequest.options.headers['x-request-id'], 'req-reset');
+    assert.equal(capturedRequest.context.operation, 'resetPasswordPassthrough');
+    assert.deepEqual(response, {
+        status: 200,
+        contentType: 'application/json',
+        body: '{"message":"password reset"}',
+    });
+});
+
 test('register forwards payload and returns Core response unchanged', async () => {
     const client = new CoreClient({});
     let capturedRequest;

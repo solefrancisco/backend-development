@@ -33,6 +33,16 @@ class AuthController {
         }
     }
 
+    async resetPassword(req, res, next) {
+        try {
+            const result = await this.authService.resetPassword(req.body || {}, req.headers['x-request-id']);
+
+            return this.sendCoreResponse(res, result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
     async ssoTicket(req, res, next) {
         try {
             const auth = this.getRequestAuth(req);
