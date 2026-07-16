@@ -4,7 +4,54 @@ const { operatingRoomsClient: OperatingRoomsClient } = require('@notify/integrat
 
 const operatingRoomsClient = new OperatingRoomsClient();
 
-async function processWebhookNotification(data) {
+function isCoreEventsUrl(url) {
+    try {
+        const { pathname } = new URL(url);
+        return pathname === '/events/log'
+            || pathname.endsWith('/events/log')
+            || pathname === '/api/events/webhook'
+            || pathname.endsWith('/api/events/webhook');
+    } catch (error) {
+        return false;
+    }
+}
+
+function parseJsonBodyIfPossible(body) {
+    if (typeof body !== 'string') {
+        return body;
+    }
+
+    try {
+        return JSON.parse(body);
+    } catch (error) {
+        return body;
+    }
+}
+
+function normalizeRequestBody(data) {
+    const isCoreEventsRequest = isCoreEventsUrl(data.request.url);
+    let bodyToSend = data.request.body;
+
+    if (!isCoreEventsRequest) {
+        bodyToSend = parseJsonBodyIfPossible(bodyToSend);
+    }
+
+    if (bodyToSend && typeof bodyToSend === 'object' && !Array.isArray(bodyToSend)) {
+        bodyToSend = { ...bodyToSend };
+
+        if (isCoreEventsRequest && bodyToSend.payload !== undefined && typeof bodyToSend.payload !== 'string') {
+            bodyToSend.payload = JSON.stringify(bodyToSend.payload);
+        }
+
+        if (!isCoreEventsRequest) {
+            bodyToSend.disclaimer = `Notificacion enviada por ${data.notification_sent_by} a traves de Notifier`;
+        }
+    }
+
+    return bodyToSend;
+}
+
+function buildWebhookRequestOptions(data) {
     const method = data.request.method;
     const headers = { ...(data.request.headers || {}) };
 
@@ -14,14 +61,7 @@ async function processWebhookNotification(data) {
     };
 
     if (data.request.body !== undefined && !['GET', 'HEAD'].includes(method)) {
-        let bodyToSend = data.request.body;
-
-        if (typeof bodyToSend !== 'string') {
-            bodyToSend = {
-                ...bodyToSend,
-                disclaimer: `Notificación enviada por ${data.notification_sent_by} a través de Notifier`,
-            };
-        }
+        const bodyToSend = normalizeRequestBody(data);
 
         requestOptions.body =
             typeof bodyToSend === 'string'
@@ -32,10 +72,16 @@ async function processWebhookNotification(data) {
             headers['Content-Type'] != null ||
             headers['content-type'] != null;
 
-        if (!hasContentType && typeof data.request.body !== 'string') {
+        if (!hasContentType && typeof bodyToSend !== 'string') {
             requestOptions.headers['Content-Type'] = 'application/json';
         }
     }
+
+    return requestOptions;
+}
+
+async function processWebhookNotification(data) {
+    const requestOptions = buildWebhookRequestOptions(data);
 
     try{
         console.log(`Sending webhook notification: ${JSON.stringify(requestOptions)}`);
@@ -138,4 +184,6 @@ async function startWebhookConsumer() {
 module.exports = {
     startWebhookConsumer,
     processWebhookNotification,
+    buildWebhookRequestOptions,
+    normalizeRequestBody,
 };
