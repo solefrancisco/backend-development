@@ -98,7 +98,7 @@ const createAppointmentSchema = z.object({
   }
 
   const now = new Date();
-
+  /*
   if (startsAt < now) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -106,9 +106,10 @@ const createAppointmentSchema = z.object({
       path: ['appointment', 'starts_at']
     });
   }
+   */
 
   const startsAtHour = parseInt(appointment.starts_at.split(' ')[1].split(':')[0]);
-  const endsAtHour = parseInt(appointment.ends_at.split(' ')[1].split(':')[0]);
+  // const endsAtHour = parseInt(appointment.ends_at.split(' ')[1].split(':')[0]);
   if (startsAtHour < 9 || startsAtHour > 17) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -117,6 +118,7 @@ const createAppointmentSchema = z.object({
     });
   }
 
+  /*
   if (endsAtHour < 9 || endsAtHour > 18) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -124,6 +126,7 @@ const createAppointmentSchema = z.object({
       path: ['appointment', 'ends_at']
     });
   }
+   */
 });
 
 module.exports = { createAppointmentSchema };
