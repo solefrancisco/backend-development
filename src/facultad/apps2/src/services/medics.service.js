@@ -27,7 +27,7 @@ class MedicsService {
         }
 
         await this.validateMedicIsNotAlreadyCached(data.medic_id);
-        // await this.validateLocalSpecialityExists(data.speciality_id);
+        await this.validateLocalSpecialityExists(data.speciality_id);
         await this.validateCoreSpecialityExists(data.speciality_id);
         const medics = await this.getMedicsFromCore(data.medic_id);
 
