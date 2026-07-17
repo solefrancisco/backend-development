@@ -35,7 +35,7 @@ class AppointmentsService {
             // if mocking is enabled, we check in our database to avoid creating appointments with non existing data
             await this.specialitiesService.getSpecialityById(data.appointment.speciality_id);
         } else {
-            await this.validateCoreUserRole(data.patient.id, ['patient', 'pacient', 'paciente'], 'patient');
+            // await this.validateCoreUserRole(data.patient.id, ['patient', 'pacient', 'paciente'], 'patient');
             await this.validateCoreUserRole(data.medic.id, ['medic', 'medico'], 'medic');
             const speciality = await this.getCoreSpecialityForAppointment(data.appointment.speciality_id);
             data.appointment.speciality_name = speciality.name;
